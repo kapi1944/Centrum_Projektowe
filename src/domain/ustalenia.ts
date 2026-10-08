@@ -20,6 +20,8 @@ export interface DaneDecyzji {
   nazwaZrodla: string;
   odniesienieZrodla: string;
   wpisZrodlowyId: string | null;
+  analizaWpisuId?: string;
+  elementAnalizyId?: string;
   notatki: string;
   powiazaneElementy: PowiazanyElement[];
 }
@@ -51,12 +53,13 @@ export interface AnalizaWplywu {
   projektIds: string[];
   utworzono: string;
   propozycje: PropozycjaWplywu[];
+  zrodloAnalizyWpisu?: { analizaWpisuId: string; elementAnalizyId: string; tresc: string };
 }
 export type OperacjaUstalen =
   | { rodzaj: 'utworz'; id: string; dane: DaneDecyzji }
   | { rodzaj: 'status'; id: string; status: Exclude<StatusDecyzji, 'SUPERSEDED'>; wersja: number }
   | { rodzaj: 'zastap'; id: string; wersja: number; noweId: string; dane: DaneDecyzji }
-  | { rodzaj: 'analizuj'; zrodlo: ZrodloWplywu }
+  | { rodzaj: 'analizuj'; zrodlo: ZrodloWplywu; kontekstAnalizyWpisu?: { analizaWpisuId: string; elementAnalizyId: string; tresc: string; projektId: string } }
   | { rodzaj: 'rozstrzygnij'; analizaId: string; propozycjaId: string; zatwierdz: boolean };
 export interface StanUstalen {
   projekty: Projekt[];
@@ -144,7 +147,8 @@ export function wykonajOperacjeUstalen(stan: StanUstalen, operacja: OperacjaUsta
       if (operacja.zrodlo.typ === 'CAPTURE') {
         const wpis = stan.wpisy.find((wpis) => wpis.id === operacja.zrodlo.id);
         if (!wpis) throw new Error('Wpis nie istnieje.');
-        projektIds = wpis.projektId ? [wpis.projektId] : [];
+        const projektId = wpis.projektId ?? operacja.kontekstAnalizyWpisu?.projektId;
+        projektIds = projektId ? [projektId] : [];
       } else projektIds = decyzja(operacja.zrodlo.id).projektIds;
       const id = `wplyw-${kontekst.idZdarzenia}`;
       const propozycje: PropozycjaWplywu[] = [];
@@ -169,7 +173,10 @@ export function wykonajOperacjeUstalen(stan: StanUstalen, operacja: OperacjaUsta
         const proponowane = { ...poprzednio, nastepnyKrok: 'Sprawdź wpływ nowej informacji na ustalenia projektu.' };
         if (poprzednio.nastepnyKrok !== proponowane.nastepnyKrok) propozycje.push({ ...podstawa(`Punkt powrotu: ${odczytany.nazwa}`), rodzaj: 'RESUME', projektId: idProjektu, poprzednio, proponowane });
       }
-      wynik.analizy.push({ id, zrodlo: operacja.zrodlo, projektIds, utworzono: kontekst.czas, propozycje });
+      const pochodzenie = operacja.kontekstAnalizyWpisu;
+      wynik.analizy.push({ id, zrodlo: operacja.zrodlo, projektIds, utworzono: kontekst.czas, propozycje,
+        ...(pochodzenie ? { zrodloAnalizyWpisu: { analizaWpisuId: pochodzenie.analizaWpisuId, elementAnalizyId: pochodzenie.elementAnalizyId, tresc: pochodzenie.tresc } } : {}),
+      });
       zdarzenie('IMPACT_ANALYZED', 'Sprawdzono możliwy wpływ informacji', id, projektIds);
       break;
     }

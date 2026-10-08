@@ -4,26 +4,33 @@ import type { AkcjaWpisu } from '../../domain/modele';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen } from '../../domain/ustalenia';
 import { sprawdzDaneProjektu, utworzProjekt, utworzWpis } from '../../domain/operacje';
 import type { RepozytoriumProjektowe } from '../../domain/repozytorium';
+import type { AnalizaWpisu, AnalysisProvider, OperacjaAnalizyWpisu } from '../../domain/analizaWpisu';
+import type { WynikUstalen } from '../../domain/ustalenia';
+import { RuleBasedAnalysisProvider } from '../../infrastructure/RuleBasedAnalysisProvider';
 
-export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe) {
+const domyslnyDostawcaAnalizy: AnalysisProvider = new RuleBasedAnalysisProvider();
+
+export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dostawcaAnalizy = domyslnyDostawcaAnalizy) {
   const [projekty, ustawProjekty] = useState<Projekt[]>([]);
   const [wpisy, ustawWpisy] = useState<Wpis[]>([]);
   const [zdarzenia, ustawZdarzenia] = useState<ZdarzenieAktywnosci[]>([]);
   const [decyzje, ustawDecyzje] = useState<Decyzja[]>([]);
   const [analizy, ustawAnalizy] = useState<AnalizaWplywu[]>([]);
+  const [analizyWpisow, ustawAnalizyWpisow] = useState<AnalizaWpisu[]>([]);
   const [stan, ustawStan] = useState<'ladowanie' | 'gotowy' | 'blad'>('ladowanie');
   const [blad, ustawBlad] = useState('');
 
   useEffect(() => {
     let aktywny = true;
-    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia(), repozytorium.pobierzDecyzje(), repozytorium.pobierzAnalizyWplywu()])
-      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia, odczytaneDecyzje, odczytaneAnalizy]) => {
+    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia(), repozytorium.pobierzDecyzje(), repozytorium.pobierzAnalizyWplywu(), repozytorium.pobierzAnalizyWpisow()])
+      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia, odczytaneDecyzje, odczytaneAnalizy, odczytaneAnalizyWpisow]) => {
         if (!aktywny) return;
         ustawProjekty(odczytaneProjekty);
         ustawWpisy(odczytaneWpisy);
         ustawZdarzenia(odczytaneZdarzenia);
         ustawDecyzje(odczytaneDecyzje);
         ustawAnalizy(odczytaneAnalizy);
+        ustawAnalizyWpisow(odczytaneAnalizyWpisow);
         ustawStan('gotowy');
       })
       .catch(() => {
@@ -73,11 +80,29 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe) {
 
   async function wykonajUstalenie(operacja: OperacjaUstalen) {
     const wynik = await repozytorium.wykonajOperacjeUstalen(operacja, utworzKontekst());
+    przyjmijUstalenia(wynik);
+  }
+
+  function przyjmijUstalenia(wynik: WynikUstalen) {
     ustawDecyzje((poprzednie) => [...poprzednie.filter((decyzja) => !wynik.decyzje.some((nowa) => nowa.id === decyzja.id)), ...wynik.decyzje]);
     ustawAnalizy((poprzednie) => [...poprzednie.filter((analiza) => !wynik.analizy.some((nowa) => nowa.id === analiza.id)), ...wynik.analizy]);
     ustawProjekty((poprzednie) => poprzednie.map((projekt) => wynik.projekty.find((nowy) => nowy.id === projekt.id) ?? projekt));
     ustawZdarzenia((poprzednie) => [...poprzednie, ...wynik.zdarzenia]);
   }
 
-  return { projekty, wpisy, zdarzenia, decyzje, analizy, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie };
+  async function wykonajAnalizeWpisu(operacja: OperacjaAnalizyWpisu) {
+    const wynik = await repozytorium.wykonajOperacjeAnalizyWpisu(operacja, utworzKontekst());
+    ustawAnalizyWpisow((poprzednie) => [...poprzednie.filter((analiza) => analiza.id !== wynik.analizaWpisu.id), wynik.analizaWpisu]);
+    ustawWpisy((poprzednie) => poprzednie.map((wpis) => wpis.id === wynik.wpis.id ? wynik.wpis : wpis));
+    przyjmijUstalenia(wynik);
+  }
+
+  async function analizujWpis(wpisId: string) {
+    const wpis = wpisy.find((wpis) => wpis.id === wpisId);
+    if (!wpis) throw new Error('Wpis nie istnieje.');
+    const wynik = await dostawcaAnalizy.analizuj(wpis.trescOryginalna);
+    await wykonajAnalizeWpisu({ rodzaj: 'generuj', id: crypto.randomUUID(), wpisId, wynik });
+  }
+
+  return { projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
 }

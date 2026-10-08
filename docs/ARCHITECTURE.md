@@ -1,37 +1,52 @@
 # Architektura MVP
 
-## Przepływ docelowy
+## Przepływ Etapów 0–4 z integracją 3R
 
-Surowy wpis → zachowanie oryginału → przypisanie do projektu lub utworzenie projektu → analiza → propozycje zmian → zatwierdzenie przez użytkownika → aktualizacja modelu projektu → historia.
+**Capture → CaptureAnalysis → Review → Apply → Decision / Impact.**
 
-Etap 0 realizuje zapis oryginału i opcjonalne przypisanie do istniejącego projektu. Projekt można utworzyć na stronie Projekty. Dalsze kroki są zaplanowane, a zapis wpisu nie jest zatwierdzeniem zmian modelu.
+**ORYGINAŁ ≠ ANALIZA ≠ DECYZJA.** Surowy wpis jest źródłem, analiza zbiorem propozycji systemu, a zatwierdzenie elementu osobnym działaniem użytkownika. Samo generowanie i review nie zmieniają Project ani Decision. Oryginał `Wpis.trescOryginalna` pozostaje niezmienny.
+
+`POSSIBLE_DECISION` po apply tworzy istniejącą `Decyzja` jako `PROPOSED`. `IMPACT_CANDIDATE` inicjuje istniejącą `AnalizaWplywu` ze źródłem Capture oraz pochodzeniem zatwierdzonego elementu. Faktyczny wpływ na projekt wymaga osobnego rozstrzygnięcia propozycji Etapu 4. Pozostałe typy są zachowywane w analizie; nie tworzą konkurencyjnego modelu wiedzy ani wykonania.
 
 ## Podział odpowiedzialności
 
 ```text
 src/
-  app/             shell, routing i połączenie UI z przypadkami użycia
-  domain/          modele, czyste operacje i kontrakt repozytorium
-  features/        obsługa rejestru: odczyt i koordynacja zapisu
-  infrastructure/ adapter IndexedDB
-  pages/           Start, Projekty, Inbox
+  app/             shell, routing, połączenie UI z rejestrem
+  domain/          modele, czyste operacje, AnalysisProvider, kontrakt repozytorium
+  features/        formularze, review, ustalenia, koordynacja zapisu
+  infrastructure/ adapter IndexedDB, RuleBasedAnalysisProvider
+  pages/           Start, Projekty, Projekt, Inbox, Ustalenia
   shared/          style i formatowanie dat
 ```
 
-Domena nie importuje Reacta, IndexedDB ani API przeglądarki. Operacje domenowe otrzymują identyfikator i czas jako argumenty. `useRejestrProjektowy` dostaje repozytorium przez parametr, tworzy identyfikatory/czas i aktualizuje projekcję UI dopiero po potwierdzeniu zapisu. `main.tsx` wybiera adapter IndexedDB i przekazuje go aplikacji. Nie ma globalnego frameworka repozytoriów ani kontenera zależności.
+Domena nie importuje Reacta, IndexedDB ani API przeglądarki. Otrzymuje identyfikatory, czas i kontekst zapisu przez argumenty. `analizaWpisu.ts` przechowuje model analizy oraz reguły jej cyklu życia i zastosowania. Przy tworzeniu decyzji i wpływu wywołuje istniejącą `wykonajOperacjeUstalen`; kolejne decyzje w jednym apply widzą już wcześniejsze numery `DEC-XXXX`. Nie ma drugiego silnika Decision ani Impact.
 
-Formularze przechowują tylko stan edycji, postęp i komunikaty. Nie zawierają reguł tworzenia modeli ani bezpośrednich operacji storage. Trwałym źródłem danych jest repozytorium; tablice w React to projekcja bieżącej karty.
+`AnalysisProvider.analizuj` przyjmuje tekst i zwraca wynik z pochodzeniem, wersją i propozycjami. Jest asynchroniczny, ale jedyna implementacja działa lokalnie według jawnych reguł. Uruchomienie dostawcy odbywa się przed transakcją. Kontrakt dopuszcza oznaczenia `RULE_BASED`, `REMOTE_LLM`, `LOCAL_LLM`; nie implementujemy LLM, sieci ani konfiguracji API. Reguły nie przypisują prawdziwości ani pewności i nie tworzą FACT na podstawie domysłu.
 
-## Persistence
+`useRejestrProjektowy` dostaje repozytorium i opcjonalnie dostawcę. Po wygenerowaniu wyniku przekazuje operację do repozytorium, a projekcję React aktualizuje dopiero po zatwierdzeniu transakcji. Formularze przechowują lokalną edycję, blokadę ponownego kliknięcia i błędy. Review pokazuje trwały oryginał, elementy w siedmiu sekcjach, historię ocen i efekt apply. Inbox zachowuje także dotychczasowy ręczny dostęp do analizy wpływu Etapu 4.
 
-Baza `centrum-projektowe`, wersja 1. Magazyny `projekty` i `wpisy` używają klucza `id`. Adapter korzysta z natywnego IndexedDB bez dodatkowego frameworka. Zapis przez `add` odrzuca duplikat identyfikatora zamiast nadpisywać istniejący rekord. Wpis z przypisaniem wymaga istniejącego projektu; kontrola i zapis działają w jednej transakcji. Sukces jest zwracany dopiero po zakończeniu transakcji. Połączenie zamyka się po operacji.
+## Persistence i migracje
 
-Oryginał wpisu nie jest normalizowany. Białe znaki służą jedynie do sprawdzenia, czy wpis jest pusty. Nie udostępniamy operacji edycji ani usuwania oryginału. Nie jest to zabezpieczenie przed ręczną modyfikacją bazy w narzędziach przeglądarki.
+Baza `centrum-projektowe` ma **wersję 4**. Magazyny z kluczem `id`: `projekty`, `wpisy`, `zdarzenia`, `decyzje`, `analizyWplywu`, `analizyWpisow`.
 
-Zmiany schematu będą wymagały kolejnych wersji i migracji w `onupgradeneeded`; nie wolno czyścić bazy, aby ominąć migrację. Etap 1 obejmuje migracje, wersjonowanie modeli i eksport/import danych. Dopiero późniejsze potrzeby uzasadnią indeksy lub dodatkowe repozytoria.
+| Migracja | Zmiana |
+| --- | --- |
+| Nowa baza | Utworzenie wszystkich magazynów |
+| v1 → v2 | Rozwinięcie modeli Projekt/Wpis, zachowanie oryginałów i przypisań, magazyn historii |
+| v2 → v3 | Decision i ImpactAnalysis; unikalny indeks `czytelneId` i indeks `projektIds` decyzji |
+| v3 → v4 | Wyłącznie nowy magazyn `analizyWpisow` z unikalnym indeksem `wpisId`; istniejące dane pozostają bez zmian |
 
-## Bezpieczny kierunek rozwoju
+Aktualizacja z v1 lub v2 przechodzi również późniejsze kroki. Migracja nie usuwa magazynów, nie resetuje danych ani historii i nie uzupełnia fikcyjnej historii wcześniejszych etapów. Jedna analiza na wpis zapobiega przypadkowemu nadpisaniu wyników i review.
 
-Analiza ma tworzyć osobne propozycje, zachowując powiązanie ze źródłowym wpisem. Dopiero jawne zatwierdzenie może zmienić model projektu. Zapis zmian modelu i zdarzeń historii powinien być atomowy oraz odporny na ponowne zatwierdzenie. Historia nie zastępuje oryginału wpisu. Mechanizm analizy zostanie określony w etapie 3; ten fundament nie dodaje AI ani połączeń sieciowych.
+Operacje analizy odczytują najnowszy stan wewnątrz jednej transakcji `readwrite` obejmującej wszystkie sześć magazynów. W tej samej transakcji zapisują analizę, status Capture, utworzone decyzje, analizę wpływu, ewentualną aktywność projektu i zdarzenia. Błąd któregokolwiek zapisu wycofuje całość. Repozytorium zwraca sukces dopiero w `oncomplete`, po czym zamyka połączenie. Nie ma asynchronicznych wywołań dostawcy wewnątrz transakcji.
 
-Nie ma uwierzytelnienia, synchronizacji, konfliktów między urządzeniami, eksportu ani service workera. Dane są lokalne, ale nie szyfrowane. Aktualizacja stanu między kartami wymaga odświeżenia. Testy persistence korzystają z fake-indexeddb, więc nie stanowią dowodu trwałości w konkretnej przeglądarce lub po restarcie urządzenia.
+Review i apply wymagają aktualnej `wersja` analizy. Równoczesne operacje z innej karty nie mogą nadpisać nowszego review; powtórny apply jest odrzucany. Edycje i odrzucenia trafiają do `historiaReview`, bez ActivityEvent na każde kliknięcie. Zdarzenia graniczne to `CAPTURE_ANALYZED`, `CAPTURE_REVIEWED`, `CAPTURE_ANALYSIS_APPLIED`; operacje ustaleń zachowują swoje zdarzenia.
+
+Ochrona nieaktualnego wpływu pozostaje w istniejącym mechanizmie: wersja decyzji oraz porównanie punktu powrotu z jego snapshotem. Przyjęcie kandydata analizy nie omija tych kontroli. `APPLIED` Capture oznacza zakończony zapis apply, nie zgodę na wszystkie późniejsze propozycje wpływu.
+
+## Granice
+
+Brak operacji edycji lub usuwania oryginału. Nie chroni to przed ręczną zmianą IndexedDB w narzędziach przeglądarki. Brak synchronizacji kart, backendu, kont, eksportu, kopii zapasowych i service workera. Inna karta wymaga odświeżenia po konflikcie. Nie implementujemy Task, WorkItem, OpenQuestion, Blocker, Document ani Project Health.
+
+Testy Vitest i Testing Library sprawdzają domenę i interakcje UI w jsdom, a fake-indexeddb migracje, odtwarzanie stanu, rollback i współbieżność. Nie są dowodem trwałości w konkretnej przeglądarce ani po restarcie urządzenia.

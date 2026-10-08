@@ -1,17 +1,29 @@
 # Roadmapa
 
-To kolejność rozwoju, nie lista gotowych funkcji. Kolejne etapy wymagają osobnego zadania.
+Etap 3 pierwotnie pominięto. Etap **3R** dołącza CaptureAnalysis do już istniejących decyzji i wpływu Etapu 4. Kolejne etapy wymagają osobnego zadania.
 
-| Etap | Zakres | Stan / warunek zakończenia |
+| Etap | Zakres | Stan |
 | --- | --- | --- |
-| 0. Fundament | React/TS/Vite, routing, katalogi, kontrakt repozytorium, minimalny zapis projektów i oryginałów, dokumentacja, testy | Zaimplementowany fundament; pełny przepływ analizy nie istnieje |
-| 1. Model i persistence | Rozwinięcie modelu, relacje, wersjonowanie, migracje, eksport/import i odtwarzanie | Plan; migracja bez utraty danych i sprawdzony powrót z kopii |
-| 2. Inbox + „Gdzie skończyłem?” | Przechwytywanie i przypisywanie wpisów, tworzenie projektu z wpisu, podsumowanie ostatniej pracy i nierozstrzygniętych spraw | Plan; użytkownik odnajduje ostatni kontekst bez przeglądania całej historii |
-| 3. Analiza wpisów | Analiza zachowanego źródła, oddzielne propozycje, podgląd, zatwierdzanie i odrzucanie | Plan; żadna propozycja nie zmienia modelu bez zgody |
-| 4. Decyzje + historia + impact | Decyzje, uzasadnienia, źródła, wpływ na obszary i etapy, atomowa aktualizacja modelu z historią | Plan; można odtworzyć co, kiedy i dlaczego zmieniono |
-| 5. Wykonanie | Obszary, etapy, zadania, elementy pracy, pytania i blokery | Plan; status wdrożenia pozostaje odrębny od statusu decyzji |
-| 6. Dokumentacja / repozytoria / zasoby | Dokumenty, ręczne powiązania z repozytoriami, katalog zasobów | Plan; dostęp do kontekstu projektu bez integracji sieciowych |
-| 7. Zdrowie / dashboard | Ocena zdrowia z dowodów, aktualność kontekstu, blokady, następne kroki | Plan; brak wymyślonych statystyk i automatycznych deklaracji sukcesu |
-| 8+. Integracje | Opcjonalne zewnętrzne źródła, synchronizacja lub AI | Po osobnym, wyraźnym zleceniu; zgoda, zakres dostępu i kontrola zmian |
+| 0. Fundament | React/TS/Vite, routing, kontrakt repozytorium, zapis projektów i oryginałów | Zaimplementowany |
+| 1. Project Memory Core | Rozwinięty Project, statusy, archiwizacja, ActivityEvent, atomowe persistence i migracje | Zaimplementowany; eksport/import i kopie zapasowe pozostają poza zakresem |
+| 2. Inbox + „Gdzie skończyłem?” | Zapis i przypisywanie Capture, projekt z wpisu, ręczny punkt powrotu | Zaimplementowany |
+| 3R. Capture Analysis Engine | Osobna analiza, AnalysisProvider, reguły lokalne, review i apply do istniejących Decision / ImpactAnalysis | Zaimplementowany; oryginał niezmienny, zatwierdzanie jawne, audyt i rollback |
+| 4. Decisions + Supersession + Impact Analysis | Decyzje, źródła, wersje, zastępowanie, relacyjny wpływ i osobne zatwierdzanie propozycji | Istniejąca implementacja zachowana i połączona z 3R |
+| 5. Wykonanie | Obszary, etapy, zadania, elementy pracy, pytania i blokery | Plan; rekomendacje i pytania z 3R pozostają elementami analizy |
+| 6. Dokumentacja / repozytoria / zasoby | Dokumenty, ręczne powiązania z repozytoriami, katalog zasobów | Plan |
+| 7. Zdrowie / dashboard | Ocena zdrowia z dowodów, aktualność kontekstu, blokady, następne kroki | Plan |
+| 8+. Integracje | Opcjonalne źródła zewnętrzne i dostawcy LLM | Wymagają osobnego polecenia; brak API i integracji w 3R |
 
-Priorytetem pozostaje pamięć projektowa i zamknięcie pętli wpis → zatwierdzona aktualizacja → historia. Rozbudowane zarządzanie terminami, zespołami i publiczne portfolio nie należą do fundamentu MVP.
+## Obecny przepływ
+
+**Capture → CaptureAnalysis → Review → Apply → Decision / Impact.**
+
+**ORYGINAŁ ≠ ANALIZA ≠ DECYZJA.** Sam wynik dostawcy nie zmienia modelu projektu. Akceptacja założenia zachowuje jego typ. Potencjalna decyzja staje się propozycją w istniejącym rejestrze; kandydat wpływu trafia do istniejącego mechanizmu, którego propozycje wymagają osobnej zgody użytkownika. Regułowy provider nie ustala prawdziwości faktów ani semantyki tekstu.
+
+## Granice 3R
+
+- IndexedDB v4 dodaje wyłącznie magazyn analiz; dane i historia Etapów 0–4 pozostają zachowane.
+- Jedna analiza na Capture, trwałe częściowe review i audyt edycji/odrzuceń; brak regeneracji i otwierania zakończonego review.
+- Brak zewnętrznego AI API, lokalnego LLM, Task, WorkItem, pełnej encji OpenQuestion, Blocker, Document, GitHub API i Project Health.
+- `APPLIED` oznacza udany zapis efektów analizy, a nie wdrożenie decyzji ani zatwierdzenie wszystkich propozycji wpływu.
+- Testy automatyczne obejmują regresję istniejących 43 przypadków, analizę, review, apply, provenance, migracje, współbieżność, rollback i ochronę nieaktualnego wpływu. Środowisko jsdom/fake-indexeddb nie zastępuje próby trwałości w rzeczywistej przeglądarce.

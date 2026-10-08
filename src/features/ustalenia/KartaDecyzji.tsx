@@ -35,6 +35,7 @@ export function KartaDecyzji({ decyzja, decyzje, projekty, wpisy, analizy, proje
     <p>Status: {statusyDecyzji[decyzja.status]}</p>
     <p>Projekty: {decyzja.projektIds.map((id) => <Link key={id} to={`/projekty/${id}/ustalenia`}>{projekty.find((projekt) => projekt.id === id)?.nazwa ?? id}{' '}</Link>)}</p>
     <p>Źródło: {decyzja.nazwaZrodla} ({decyzja.typZrodla}) {decyzja.odniesienieZrodla}</p>
+    {decyzja.analizaWpisuId && <p>Analiza źródłowa: {decyzja.analizaWpisuId} · element: {decyzja.elementAnalizyId}. Zatwierdzenie elementu analizy jest odrębne od przyjęcia decyzji.</p>}
     {wpis && <details><summary>Powiązany wpis — oryginał</summary><p className="surowy-wpis">{wpis.trescOryginalna}</p><Link to={`/inbox?wpis=${encodeURIComponent(wpis.id)}`}>Otwórz wpis w Inbox</Link></details>}
     {decyzja.notatki && <p className="surowy-wpis">Notatki: {decyzja.notatki}</p>}
     <ul>{decyzja.powiazaneElementy.map((element, numer) => <li key={numer}>{typyElementow[element.typ]}: {element.tytul} ({element.id}) — odnośnik ręczny</li>)}</ul>

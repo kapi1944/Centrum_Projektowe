@@ -2,6 +2,7 @@ import type { KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci } from '../doma
 import { przygotujAkcjeWpisu, utworzProjekt, utworzWpis, zdarzenieUtworzenia, zmienProjekt } from '../domain/operacje';
 import type { RepozytoriumProjektowe } from '../domain/repozytorium';
 import { wykonajOperacjeUstalen, type AnalizaWplywu, type Decyzja, type StanUstalen } from '../domain/ustalenia';
+import { wykonajAnalizeWpisu, type AnalizaWpisu } from '../domain/analizaWpisu';
 
 export function utworzRepozytoriumIndexedDb(
   nazwaBazy = 'centrum-projektowe',
@@ -12,7 +13,7 @@ export function utworzRepozytoriumIndexedDb(
         odrzuc(new Error('Ta przeglądarka nie udostępnia IndexedDB.'));
         return;
       }
-      const zadanie = indexedDB.open(nazwaBazy, 3);
+      const zadanie = indexedDB.open(nazwaBazy, 4);
       let zablokowano = false;
       zadanie.onupgradeneeded = (zdarzenie) => {
         const baza = zadanie.result;
@@ -26,6 +27,10 @@ export function utworzRepozytoriumIndexedDb(
           decyzje.createIndex('czytelneId', 'czytelneId', { unique: true });
           decyzje.createIndex('projektIds', 'projektIds', { multiEntry: true });
           baza.createObjectStore('analizyWplywu', { keyPath: 'id' });
+        }
+        if (zdarzenie.oldVersion < 4) {
+          const analizy = baza.createObjectStore('analizyWpisow', { keyPath: 'id' });
+          analizy.createIndex('wpisId', 'wpisId', { unique: true });
         }
         if (zdarzenie.oldVersion === 1) {
           const transakcja = zadanie.transaction!;
@@ -93,7 +98,7 @@ export function utworzRepozytoriumIndexedDb(
     const baza = await otworzBaze();
     try {
       return await new Promise<T>((rozwiaz, odrzuc) => {
-        const transakcja = baza.transaction(['projekty', 'wpisy', 'zdarzenia', 'decyzje', 'analizyWplywu'], 'readwrite');
+        const transakcja = baza.transaction(['projekty', 'wpisy', 'zdarzenia', 'decyzje', 'analizyWplywu', 'analizyWpisow'], 'readwrite');
         let wynik: T;
         let bladOperacji: unknown;
         transakcja.oncomplete = () => rozwiaz(wynik);
@@ -126,6 +131,30 @@ export function utworzRepozytoriumIndexedDb(
   }
 
   return {
+    pobierzAnalizyWpisow: () => pobierzWszystkie<AnalizaWpisu>('analizyWpisow'),
+    wykonajOperacjeAnalizyWpisu: (operacja, kontekst) => zapisz((transakcja, zakoncz, _odczytajProjekt, przerwij) => {
+      const projekty = transakcja.objectStore('projekty').getAll();
+      const wpisy = transakcja.objectStore('wpisy').getAll();
+      const decyzje = transakcja.objectStore('decyzje').getAll();
+      const analizy = transakcja.objectStore('analizyWplywu').getAll();
+      const analizyWpisow = transakcja.objectStore('analizyWpisow').getAll();
+      let pozostalo = 5;
+      for (const zadanie of [projekty, wpisy, decyzje, analizy, analizyWpisow]) zadanie.onsuccess = () => {
+        if (--pozostalo !== 0) return;
+        try {
+          const wynik = wykonajAnalizeWpisu({ projekty: projekty.result, wpisy: wpisy.result, decyzje: decyzje.result, analizy: analizy.result }, analizyWpisow.result, operacja, kontekst);
+          const magazyn = transakcja.objectStore('analizyWpisow');
+          if (operacja.rodzaj === 'generuj') magazyn.add(wynik.analizaWpisu);
+          else magazyn.put(wynik.analizaWpisu);
+          transakcja.objectStore('wpisy').put(wynik.wpis);
+          for (const decyzja of wynik.decyzje) transakcja.objectStore('decyzje').add(decyzja);
+          for (const analiza of wynik.analizy) transakcja.objectStore('analizyWplywu').add(analiza);
+          for (const projekt of wynik.projekty) transakcja.objectStore('projekty').put(projekt);
+          for (const zdarzenie of wynik.zdarzenia) transakcja.objectStore('zdarzenia').add(zdarzenie);
+          zakoncz(wynik);
+        } catch (blad) { przerwij(blad); }
+      };
+    }),
     pobierzDecyzje: () => pobierzWszystkie<Decyzja>('decyzje'),
     pobierzAnalizyWplywu: () => pobierzWszystkie<AnalizaWplywu>('analizyWplywu'),
     wykonajOperacjeUstalen: (operacja, kontekst) => zapisz((transakcja, zakoncz, _odczytajProjekt, przerwij) => {

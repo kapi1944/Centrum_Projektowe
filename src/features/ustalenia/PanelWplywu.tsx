@@ -28,6 +28,7 @@ export function PanelWplywu({ zrodlo, analizy, wykonaj }: {
     {blad && <p role="alert">{blad}</p>}
     {widoczne.map((analiza) => <section key={analiza.id} aria-label="Wynik analizy wpływu">
       <p>{formatujDate(analiza.utworzono)}</p>
+      {analiza.zrodloAnalizyWpisu && <p className="surowy-wpis">Zatwierdzony kandydat z analizy {analiza.zrodloAnalizyWpisu.analizaWpisuId}, element {analiza.zrodloAnalizyWpisu.elementAnalizyId}: {analiza.zrodloAnalizyWpisu.tresc}</p>}
       <p>Ta informacja może zmieniać {analiza.propozycje.length} istniejące elementy projektu.</p>
       {!analiza.propozycje.length && <p>Brak kandydatów wynikających z relacji. Dla wpisu bez projektu najpierw wybierz projekt.</p>}
       <ul className="lista-rekordow">{analiza.propozycje.map((propozycja) => <li key={propozycja.id}>

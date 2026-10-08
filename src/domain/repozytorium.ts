@@ -1,8 +1,11 @@
 import type { KontekstZapisu, Projekt, Wpis, WynikZmianyProjektu, ZdarzenieAktywnosci, ZmianaProjektu } from './modele';
 import type { AkcjaWpisu, WynikZmianyWpisu } from './modele';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen, WynikUstalen } from './ustalenia';
+import type { AnalizaWpisu, OperacjaAnalizyWpisu, WynikAnalizyWpisu } from './analizaWpisu';
 
 export interface RepozytoriumProjektowe {
+  pobierzAnalizyWpisow(): Promise<AnalizaWpisu[]>;
+  wykonajOperacjeAnalizyWpisu(operacja: OperacjaAnalizyWpisu, kontekst: KontekstZapisu): Promise<WynikAnalizyWpisu>;
   pobierzProjekty(): Promise<Projekt[]>;
   dodajProjekt(projekt: Projekt, kontekst: KontekstZapisu): Promise<ZdarzenieAktywnosci>;
   zmienProjekt(id: string, zmiana: ZmianaProjektu, kontekst: KontekstZapisu): Promise<WynikZmianyProjektu>;

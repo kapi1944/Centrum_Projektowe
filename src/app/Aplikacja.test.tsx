@@ -37,6 +37,7 @@ describe('Shell aplikacji', () => {
       zmienProjekt: vi.fn(), pobierzZdarzenia: vi.fn().mockResolvedValue([]),
       wykonajAkcjeWpisu: vi.fn(),
       pobierzDecyzje: vi.fn().mockResolvedValue([]), pobierzAnalizyWplywu: vi.fn().mockResolvedValue([]), wykonajOperacjeUstalen: vi.fn(),
+      pobierzAnalizyWpisow: vi.fn().mockResolvedValue([]), wykonajOperacjeAnalizyWpisu: vi.fn(),
     };
     render(<MemoryRouter><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);
     expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się odczytać');
@@ -51,6 +52,7 @@ describe('Shell aplikacji', () => {
       zmienProjekt: vi.fn(), pobierzZdarzenia: vi.fn().mockResolvedValue([]),
       wykonajAkcjeWpisu: vi.fn(),
       pobierzDecyzje: vi.fn().mockResolvedValue([]), pobierzAnalizyWplywu: vi.fn().mockResolvedValue([]), wykonajOperacjeUstalen: vi.fn(),
+      pobierzAnalizyWpisow: vi.fn().mockResolvedValue([]), wykonajOperacjeAnalizyWpisu: vi.fn(),
     };
     render(<MemoryRouter initialEntries={['/inbox']}><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);
     await osoba.type(await screen.findByLabelText('Co chcesz zapisać?'), 'Nie zgub tej myśli');

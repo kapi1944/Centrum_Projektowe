@@ -5,8 +5,13 @@ import { AkcjeWpisu } from '../features/inbox/AkcjeWpisu';
 import { formatujDate } from '../shared/formatujDate';
 import type { AnalizaWplywu, OperacjaUstalen } from '../domain/ustalenia';
 import { PanelWplywu } from '../features/ustalenia/PanelWplywu';
+import type { AnalizaWpisu, OperacjaAnalizyWpisu } from '../domain/analizaWpisu';
+import { ReviewAnalizy } from '../features/inbox/ReviewAnalizy';
 
-export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, wykonajUstalenie }: {
+export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, wykonajUstalenie, analizyWpisow, analizujWpis, wykonajAnalizeWpisu }: {
+  analizyWpisow: AnalizaWpisu[];
+  analizujWpis: (wpisId: string) => Promise<void>;
+  wykonajAnalizeWpisu: (operacja: OperacjaAnalizyWpisu) => Promise<void>;
   projekty: Projekt[];
   wpisy: Wpis[];
   dodajWpis: (tresc: string, projektId: string | null) => Promise<void>;
@@ -69,9 +74,11 @@ export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, 
     <h2>Zapisane wpisy</h2>
     <label><input type="checkbox" checked={pokazOdrzucone} onChange={(zdarzenie) => ustawPokazOdrzucone(zdarzenie.target.checked)} /> Pokaż odrzucone</label>
     {widoczneWpisy.length === 0 ? <p>Brak wpisów w tym widoku.</p> : <ul className="lista-rekordow">{[...widoczneWpisy].sort((lewy, prawy) => prawy.utworzono.localeCompare(lewy.utworzono)).map((wpis) => <li key={wpis.id} id={`wpis-${wpis.id}`}>
+      <h3>Oryginalny wpis</h3>
       <p className="surowy-wpis">{wpis.trescOryginalna}</p>
       <small>{wpis.projektId ? <Link to={`/projekty/${wpis.projektId}`}>{projekty.find((projekt) => projekt.id === wpis.projektId)?.nazwa ?? 'Nieznany projekt'}</Link> : 'Bez przypisania'} · {formatujDate(wpis.utworzono)} · {etykietyStatusowWpisu[wpis.status]}{wpis.odlozonoDoAnalizy ? ' · Do analizy później' : ''}</small>
       <AkcjeWpisu wpis={wpis} projekty={projekty} wykonajAkcje={wykonajAkcjeWpisu} />
+      <ReviewAnalizy wpis={wpis} analiza={analizyWpisow.find((analiza) => analiza.wpisId === wpis.id)} projekty={projekty} analizuj={analizujWpis} wykonaj={wykonajAnalizeWpisu} />
       <PanelWplywu zrodlo={{ typ: 'CAPTURE', id: wpis.id }} analizy={analizy} wykonaj={wykonajUstalenie} />
     </li>)}</ul>}
   </>;
