@@ -11,8 +11,12 @@ Nazwy domenowe w kodzie są polskie. `AnalysisProvider` i `RuleBasedAnalysisProv
 | `Decision` | Decyzja | Istniejące ustalenia, `DEC-XXXX`, status, wersja, projekty, źródło i zastępowanie |
 | `ImpactAnalysis` | AnalizaWplywu | Istniejące propozycje wpływu oparte na relacjach, z osobnym rozstrzyganiem |
 | `ActivityEvent` | ZdarzenieAktywnosci | Trwała historia operacji, kontekst źródła i metadane |
-| `Task` / `WorkItem` / `OpenQuestion` / `Blocker` / `Document` | — | Brak pełnych encji; ręczne odnośniki ustaleń nie są encjami wykonania |
-| `Area` / `Stage` / `Repository` / `Resource` / `ProjectHealth` | — | Poza obecnym zakresem |
+| `Area` | Obszar | Projekt, nazwa, opis, status i daty |
+| `Stage` | Etap | Projekt, opcjonalny obszar, nazwa, opis, status i kolejność |
+| `WorkItem` | ElementPracy | Siedem typów pracy, status, priorytet, opcjonalny obszar i etap, decyzje, daty i pochodzenie |
+| `OpenQuestion` | OtwartePytanie | Osobna encja z kontekstem, odpowiedzią i stanem rozstrzygnięcia |
+| `Blocker` | Blokada | Osobna encja z wagą, stanem i datą rozwiązania |
+| `Document` / `Repository` / `Resource` / `ProjectHealth` | — | Poza obecnym zakresem |
 
 ## Oryginał i analiza
 
@@ -41,8 +45,8 @@ Każdy `ElementAnalizy` ma `id`, `typ`, `tresc`, opcjonalną `pewnosc` (0–1), 
 | `ASSUMPTION` | Założenie / interpretacja | Zachowane jako założenie, nigdy automatycznie zamienione na fakt |
 | `SUGGESTION` | Sugestia | Zachowany element analizy |
 | `POSSIBLE_DECISION` | Potencjalna decyzja | Istniejąca Decyzja, status `PROPOSED` |
-| `OPEN_QUESTION` | Otwarte pytanie | Zachowany element, bez pełnej encji `OpenQuestion` |
-| `RECOMMENDED_ACTION` | Rekomendowane działanie | Zachowany element oczekujący na Etap 5, bez `Task` |
+| `OPEN_QUESTION` | Otwarte pytanie | Zachowany element; osobna potwierdzona konwersja do `OtwartePytanie` |
+| `RECOMMENDED_ACTION` | Rekomendowane działanie | Zachowany element; osobna potwierdzona konwersja do `ElementPracy` |
 | `IMPACT_CANDIDATE` | Kandydat możliwego wpływu | Istniejąca AnalizaWplywu z propozycjami wymagającymi osobnego zatwierdzenia |
 
 `ACCEPTED` używa `trescOryginalna`, `EDITED` używa `trescEdytowana`. `PENDING` i `REJECTED` nie mają efektów. Zakończenie weryfikacji wymaga rozstrzygnięcia wszystkich elementów; zastosowanie wymaga `REVIEWED` i co najmniej jednego zatwierdzonego elementu. Analiza bez rozpoznanych elementów może zostać zweryfikowana, ale pozostaje bez zastosowania. Zakończona weryfikacja jest zamknięta na edycję; częściową weryfikację można kontynuować.
@@ -67,3 +71,13 @@ Decyzja i wpływ wymagają aktywnego projektu. Dla luźnego wpisu użytkownik ws
 | Dotychczasowe odrzucenie nieprzetworzonego wpisu | `DISMISSED` |
 
 `Capture`, analiza, efekty i historia są zapisywane w jednej transakcji IndexedDB. Nieudane zastosowanie nie może pozostawić częściowej decyzji, wpływu ani statusu `APPLIED`. Powtórne zastosowanie jest blokowane. Zdarzenia `CAPTURE_ANALYZED`, `CAPTURE_REVIEWED`, `CAPTURE_ANALYSIS_APPLIED` opisują granice przepływu; szczegóły kliknięć pozostają w audycie elementu bez osobnego zdarzenia `ActivityEvent` na każde kliknięcie.
+
+## Model realizacji
+
+Każda encja realizacji ma `id`, `projektId`, daty utworzenia i aktualizacji oraz rosnącą `wersja`. Obszar i etap są opcjonalne dla pracy; etap przypisany do obszaru wymaga zgodnego obszaru pracy. Nie można przenieść etapu, jeżeli naruszyłoby to relacje jego elementów. Archiwalny projekt nie przyjmuje zmian realizacji.
+
+`ElementPracy.typ` to `TASK`, `RESEARCH`, `EXPERIMENT`, `CONTACT`, `PURCHASE`, `FOLLOW_UP` lub `WAITING`. `decyzjaIds` przechowuje rzeczywistą relację wiele-do-wielu bez duplikatów; decyzje muszą obejmować projekt pracy. Dotychczasowe ręczne `PowiazanyElement` pozostają odrębne i nie są przepisywane.
+
+Pytanie ma stan `OPEN`, `ANSWERED` lub `DISMISSED`; odpowiedź jest wymagana przy `ANSWERED`. Blokada ma stan `ACTIVE`, `RESOLVED` lub `DISMISSED` i wagę `LOW`, `MEDIUM`, `HIGH` lub `CRITICAL`. Etykiety interfejsu są polskie.
+
+Praca i pytanie utworzone z analizy zachowują `pochodzenie`: `analizaWpisuId`, `elementAnalizyId`, `wpisId`. Konwersja obejmuje tylko zaakceptowane lub edytowane działania i pytania w zastosowanej analizie z efektem `RETAINED`. Nie wymaga ponownej analizy starszych wpisów i nie zmienia źródła.

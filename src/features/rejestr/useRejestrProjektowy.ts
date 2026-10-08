@@ -1,3 +1,4 @@
+import { pustaRealizacja, type OperacjaRealizacji } from '../../domain/realizacja';
 import { useEffect, useState } from 'react';
 import type { DaneProjektu, KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci, ZmianaProjektu } from '../../domain/modele';
 import type { AkcjaWpisu } from '../../domain/modele';
@@ -17,13 +18,14 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
   const [decyzje, ustawDecyzje] = useState<Decyzja[]>([]);
   const [analizy, ustawAnalizy] = useState<AnalizaWplywu[]>([]);
   const [analizyWpisow, ustawAnalizyWpisow] = useState<AnalizaWpisu[]>([]);
+  const [realizacja, ustawRealizacje] = useState(pustaRealizacja);
   const [stan, ustawStan] = useState<'ladowanie' | 'gotowy' | 'blad'>('ladowanie');
   const [blad, ustawBlad] = useState('');
 
   useEffect(() => {
     let aktywny = true;
-    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia(), repozytorium.pobierzDecyzje(), repozytorium.pobierzAnalizyWplywu(), repozytorium.pobierzAnalizyWpisow()])
-      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia, odczytaneDecyzje, odczytaneAnalizy, odczytaneAnalizyWpisow]) => {
+    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia(), repozytorium.pobierzDecyzje(), repozytorium.pobierzAnalizyWplywu(), repozytorium.pobierzAnalizyWpisow(), repozytorium.pobierzRealizacje()])
+      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia, odczytaneDecyzje, odczytaneAnalizy, odczytaneAnalizyWpisow, odczytanaRealizacja]) => {
         if (!aktywny) return;
         ustawProjekty(odczytaneProjekty);
         ustawWpisy(odczytaneWpisy);
@@ -31,6 +33,7 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
         ustawDecyzje(odczytaneDecyzje);
         ustawAnalizy(odczytaneAnalizy);
         ustawAnalizyWpisow(odczytaneAnalizyWpisow);
+        ustawRealizacje(odczytanaRealizacja);
         ustawStan('gotowy');
       })
       .catch(() => {
@@ -104,5 +107,12 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
     await wykonajAnalizeWpisu({ rodzaj: 'generuj', id: crypto.randomUUID(), wpisId, wynik });
   }
 
-  return { projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
+  async function wykonajRealizacje(operacja: OperacjaRealizacji) {
+    const wynik = await repozytorium.wykonajOperacjeRealizacji(operacja, utworzKontekst());
+    ustawRealizacje(wynik.realizacja);
+    ustawProjekty((poprzednie) => poprzednie.map((projekt) => projekt.id === wynik.projekt.id ? wynik.projekt : projekt));
+    ustawZdarzenia((poprzednie) => [...poprzednie, ...wynik.zdarzenia]);
+  }
+
+  return { projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, realizacja, wykonajRealizacje, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
 }

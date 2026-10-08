@@ -1,3 +1,6 @@
+import { PanelRealizacji, PunktRealizacji } from '../features/realizacja/PanelRealizacji';
+import type { OperacjaRealizacji, StanRealizacji } from '../domain/realizacja';
+import type { Decyzja } from '../domain/ustalenia';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { etykietyZrodel, statusyProjektu, type Projekt as ModelProjektu, type ZdarzenieAktywnosci, type ZmianaProjektu } from '../domain/modele';
@@ -5,7 +8,8 @@ import { FormularzProjektu } from '../features/projekty/FormularzProjektu';
 import { FormularzPunktuPowrotu } from '../features/projekty/FormularzPunktuPowrotu';
 import { formatujDate } from '../shared/formatujDate';
 
-export function Projekt({ projekty, zdarzenia, zmienProjekt }: {
+export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje, wykonajRealizacje }: {
+  realizacja: StanRealizacji; decyzje: Decyzja[]; wykonajRealizacje: (operacja: OperacjaRealizacji) => Promise<void>;
   projekty: ModelProjektu[];
   zdarzenia: ZdarzenieAktywnosci[];
   zmienProjekt: (id: string, zmiana: ZmianaProjektu) => Promise<void>;
@@ -44,6 +48,7 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt }: {
       <h3>Ostatnio robiłem</h3><p className="surowy-wpis">{projekt.ostatnioPracowanoNad || 'Nie uzupełniono.'}</p>
       <h3>Aktualny stan</h3><p className="surowy-wpis">{projekt.podsumowanieAktualnegoStanu || 'Nie uzupełniono.'}</p>
       <h3>Następny krok</h3><p className="surowy-wpis">{projekt.nastepnyKrok || 'Nie uzupełniono.'}</p>
+      <PunktRealizacji projektId={projekt.id} realizacja={realizacja} />
       <h3>Ostatnia aktywność</h3><p>{formatujDate(projekt.ostatniaAktywnosc)}</p>
       {!projekt.zarchiwizowano && !edycja && !edycjaPunktu && <button disabled={archiwizowanie} onClick={() => ustawEdycjePunktu(true)}>Aktualizuj punkt powrotu</button>}
       {edycjaPunktu && <FormularzPunktuPowrotu poczatkoweDane={projekt} anuluj={() => ustawEdycjePunktu(false)} zapiszDane={async (dane) => {
@@ -60,12 +65,13 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt }: {
       {!edycja && <p><button onClick={archiwizuj} disabled={archiwizowanie}>{archiwizowanie ? 'Archiwizowanie…' : 'Archiwizuj projekt'}</button></p>}
     </>}
     {blad && <p role="alert">{blad}</p>}
+    <PanelRealizacji projekt={projekt} realizacja={realizacja} decyzje={decyzje} wykonaj={wykonajRealizacje} />
     <section aria-labelledby="historia-projektu">
       <h2 id="historia-projektu">Historia projektu</h2>
       <p>Ostatnie 20 zdarzeń. Historia jest rejestrowana od Etapu 1.</p>
       {historia.length === 0 ? <p>Brak zarejestrowanych zdarzeń.</p> : <ol className="lista-rekordow">{historia.map((zdarzenie) => <li key={zdarzenie.id}>
         <strong>{zdarzenie.typZdarzenia === 'CAPTURE_ANALYZED' ? 'Wygenerowano analizę wpisu — wymaga weryfikacji' : zdarzenie.typZdarzenia === 'CAPTURE_REVIEWED' ? 'Zakończono weryfikację analizy wpisu' : zdarzenie.tytul}</strong>
-        <p>{formatujDate(zdarzenie.utworzono)} · {{ PROJECT: 'Projekt', CAPTURE: 'Wpis', DECISION: 'Decyzja', IMPACT: 'Wpływ' }[zdarzenie.typEncji]} · {zdarzenie.zrodlo.nazwa} ({etykietyZrodel[zdarzenie.zrodlo.typ]})</p>
+        <p>{formatujDate(zdarzenie.utworzono)} · {{ PROJECT: 'Projekt', CAPTURE: 'Wpis', DECISION: 'Decyzja', IMPACT: 'Wpływ', WORK_ITEM: 'Element pracy', QUESTION: 'Pytanie', BLOCKER: 'Blokada' }[zdarzenie.typEncji]} · {zdarzenie.zrodlo.nazwa} ({etykietyZrodel[zdarzenie.zrodlo.typ]})</p>
         {zdarzenie.opis && <p className="surowy-wpis">{zdarzenie.opis}</p>}
       </li>)}</ol>}
     </section>

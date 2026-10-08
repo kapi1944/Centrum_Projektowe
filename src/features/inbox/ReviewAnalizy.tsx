@@ -2,9 +2,12 @@ import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { etykietyDostawcowAnalizy, etykietyStatusowAnalizy, etykietyReview, typyAnalizy, type AnalizaWpisu, type OperacjaAnalizyWpisu, type TypElementuAnalizy } from '../../domain/analizaWpisu';
 import { etykietyZrodel, type Projekt, type Wpis } from '../../domain/modele';
+import type { OperacjaRealizacji, StanRealizacji } from '../../domain/realizacja';
+import { KonwersjaAnalizy } from '../realizacja/KonwersjaAnalizy';
 import { formatujDate } from '../../shared/formatujDate';
 
-export function ReviewAnalizy({ wpis, analiza, projekty, analizuj, wykonaj }: {
+export function ReviewAnalizy({ wpis, analiza, projekty, analizuj, wykonaj, realizacja, wykonajRealizacje }: {
+  realizacja: StanRealizacji; wykonajRealizacje: (operacja: OperacjaRealizacji) => Promise<void>;
   wpis: Wpis; analiza?: AnalizaWpisu; projekty: Projekt[];
   analizuj: (wpisId: string) => Promise<void>;
   wykonaj: (operacja: OperacjaAnalizyWpisu) => Promise<void>;
@@ -67,6 +70,7 @@ export function ReviewAnalizy({ wpis, analiza, projekty, analizuj, wykonaj }: {
           {element.zastosowanie && <p>Zastosowano: {element.zastosowanie.rodzaj === 'RETAINED' ? 'zachowano zatwierdzony element analizy' : element.zastosowanie.rodzaj === 'DECISION' ? 'utworzono propozycję decyzji' : 'uruchomiono analizę wpływu — wymaga osobnego zatwierdzenia'} · {formatujDate(element.zastosowanie.czas)}
             {element.zastosowanie.rodzaj === 'DECISION' && <>{' '}<Link to={`/projekty/${element.zastosowanie.projektId}/ustalenia?decyzja=${encodeURIComponent(element.zastosowanie.encjaId!)}`}>Otwórz decyzję</Link></>}
           </p>}
+          <KonwersjaAnalizy analiza={analiza} element={element} wpis={wpis} projekty={projekty} realizacja={realizacja} wykonaj={wykonajRealizacje} />
         </article>)}
       </section>)}
       {analiza.status === 'IN_REVIEW' && <button disabled={zapisywanie || edytowanyId !== null || analiza.elementy.some((element) => element.statusReview === 'PENDING')}
@@ -79,7 +83,7 @@ export function ReviewAnalizy({ wpis, analiza, projekty, analizuj, wykonaj }: {
             {projekty.filter((projekt) => !projekt.zarchiwizowano).map((projekt) => <option key={projekt.id} value={projekt.id}>{projekt.nazwa}</option>)}
           </select>
         </>}
-        <p>Potencjalne decyzje trafią do propozycji. Wpływ wymaga osobnego zatwierdzenia. Pozostałe elementy zostaną zachowane ze swoim typem; działania i pytania czekają na Etap 5.</p>
+        <p>Potencjalne decyzje trafią do propozycji. Wpływ wymaga osobnego zatwierdzenia. Pozostałe elementy zostaną zachowane ze swoim typem; działania i pytania możesz następnie jawnie przekształcić w element pracy lub otwarte pytanie.</p>
         <button disabled={zapisywanie || !zatwierdzone.length || (wymagaProjektu && !wpis.projektId && !projektId)}
           onClick={() => void zapisz(() => wykonaj({ rodzaj: 'zastosuj', id: analiza.id, wersja: analiza.wersja, projektId: projektId || undefined }))}>Zastosuj zatwierdzone</button>
         {!zatwierdzone.length && <p>Brak zatwierdzonych elementów. Analiza pozostaje zweryfikowana bez zastosowania.</p>}

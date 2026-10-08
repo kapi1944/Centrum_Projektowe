@@ -6,9 +6,11 @@ import { formatujDate } from '../shared/formatujDate';
 import type { AnalizaWplywu, OperacjaUstalen } from '../domain/ustalenia';
 import { PanelWplywu } from '../features/ustalenia/PanelWplywu';
 import type { AnalizaWpisu, OperacjaAnalizyWpisu } from '../domain/analizaWpisu';
+import type { OperacjaRealizacji, StanRealizacji } from '../domain/realizacja';
 import { ReviewAnalizy } from '../features/inbox/ReviewAnalizy';
 
-export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, wykonajUstalenie, analizyWpisow, analizujWpis, wykonajAnalizeWpisu }: {
+export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, wykonajUstalenie, analizyWpisow, analizujWpis, wykonajAnalizeWpisu, realizacja, wykonajRealizacje }: {
+  realizacja: StanRealizacji; wykonajRealizacje: (operacja: OperacjaRealizacji) => Promise<void>;
   analizyWpisow: AnalizaWpisu[];
   analizujWpis: (wpisId: string) => Promise<void>;
   wykonajAnalizeWpisu: (operacja: OperacjaAnalizyWpisu) => Promise<void>;
@@ -78,7 +80,7 @@ export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, 
       <p className="surowy-wpis">{wpis.trescOryginalna}</p>
       <small>{wpis.projektId ? <Link to={`/projekty/${wpis.projektId}`}>{projekty.find((projekt) => projekt.id === wpis.projektId)?.nazwa ?? 'Nieznany projekt'}</Link> : 'Bez przypisania'} · {formatujDate(wpis.utworzono)} · {etykietyStatusowWpisu[wpis.status]}{wpis.odlozonoDoAnalizy ? ' · Do analizy później' : ''}</small>
       <AkcjeWpisu wpis={wpis} projekty={projekty} wykonajAkcje={wykonajAkcjeWpisu} />
-      <ReviewAnalizy wpis={wpis} analiza={analizyWpisow.find((analiza) => analiza.wpisId === wpis.id)} projekty={projekty} analizuj={analizujWpis} wykonaj={wykonajAnalizeWpisu} />
+      <ReviewAnalizy wpis={wpis} analiza={analizyWpisow.find((analiza) => analiza.wpisId === wpis.id)} projekty={projekty} analizuj={analizujWpis} wykonaj={wykonajAnalizeWpisu} realizacja={realizacja} wykonajRealizacje={wykonajRealizacje} />
       <PanelWplywu zrodlo={{ typ: 'CAPTURE', id: wpis.id }} analizy={analizy} wykonaj={wykonajUstalenie} />
     </li>)}</ul>}
   </>;

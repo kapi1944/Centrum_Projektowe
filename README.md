@@ -23,13 +23,13 @@ npm run preview
 
 React + TypeScript + Vite + React Router. Vitest, Testing Library i fake-indexeddb sprawdzają domenę, trwały zapis oraz podstawowy przepływ UI. `build` tworzy katalog `dist`. Hosting statyczny musi przekierowywać ścieżki aplikacji (np. `/inbox`) do `index.html`.
 
-## Aktualny zakres (Etapy 0–4.5, w tym 3R)
+## Aktualny zakres (Etapy 0–5, w tym 3R)
 
 - Układ aplikacji: Start, Projekty, Skrzynka oraz obsługa nieznanej trasy.
 - Tworzenie, edycja i archiwizacja projektów, ekran Start oraz ręczny punkt powrotu „Gdzie skończyłem?”.
 - Szybki zapis surowych wpisów, przypisywanie do projektu i tworzenie projektu z wpisu.
 - Oryginał wpisu zachowany bez przycinania białych znaków i bez nadpisywania.
-- IndexedDB, wersja schematu 4; migracje zachowują dane wersji 1–3, w tym decyzje i analizę wpływu Etapu 4.
+- IndexedDB, wersja schematu 5; migracje zachowują dane wersji 1–4, w tym decyzje i analizę wpływu Etapu 4.
 - `CaptureAnalysis` (`AnalizaWpisu`): osobna analiza, siedem typów elementów, weryfikacja z edycją i historią oraz atomowe zastosowanie zatwierdzonych elementów.
 - Projekt → Ustalenia: decyzje z wieloma projektami, źródłami, statusami i historią zastępowania. Numery `DEC-XXXX` są nadawane w transakcji, a poprzednia decyzja pozostaje w rejestrze.
 - Analiza wpływu ze źródłem `Capture` lub `Decision`: kandydaci wynikają ze wspólnych projektów i jawnych odnośników. Każda propozycja jest zatwierdzana lub odrzucana osobno. Status decyzji i punkt powrotu mogą zmienić się dopiero po zatwierdzeniu; nieaktualne propozycje są blokowane.
@@ -48,13 +48,21 @@ Analiza wpływu nie interpretuje semantycznie tekstu. Powiązania z zadaniami, e
 5. Potencjalna decyzja tworzy istniejącą `Decyzja` w statusie `PROPOSED`, z powiązaniem do wpisu, analizy i elementu. Przyjęcie decyzji nadal odbywa się w Ustaleniach.
 6. Kandydat wpływu inicjuje istniejącą `AnalizaWplywu`; zachowuje zatwierdzoną treść i informacje o pochodzeniu. Propozycje wpływu wymagają **osobnego zatwierdzenia**, a nieaktualne są blokowane jak w Etapie 4. Dopiero tam może zmienić się punkt powrotu lub status istniejącej decyzji.
 
-Twierdzenia do potwierdzenia, założenia i sugestie są zachowywane jako elementy analizy ze swoim typem. Akceptacja założenia oznacza chęć jego zachowania, nie obiektywną prawdziwość. Działania i pytania pozostają elementami oczekującymi na Etap 5; nie powstają encje `Task` ani `OpenQuestion`. Wpis bez projektu wymaga wskazania aktywnego projektu przy zastosowaniu decyzji lub wpływu; cel zostaje zapisany w informacjach o pochodzeniu bez zmiany oryginału i przypisania `Capture`.
+Twierdzenia do potwierdzenia, założenia i sugestie są zachowywane jako elementy analizy ze swoim typem. Akceptacja założenia oznacza chęć jego zachowania, nie obiektywną prawdziwość. Działania i pytania pozostają w analizie. Po zastosowaniu można je osobno, po potwierdzeniu, przekształcić w element pracy lub otwarte pytanie. Wpis bez projektu wymaga wskazania aktywnego projektu przy zastosowaniu decyzji lub wpływu; cel zostaje zapisany w informacjach o pochodzeniu bez zmiany oryginału i przypisania `Capture`.
 
 `AnalysisProvider` oddziela kontrakt od implementacji. Jedyny dostawca, `RuleBasedAnalysisProvider`, rozpoznaje pytania zakończone `?` oraz jawne początki zdań, np. „Decyduję”, „Trzeba”, „Zakładam”, „Proponuję”, „Wpływ:”. Podsumowanie jest oznaczonym skrótem oryginału do 180 znaków. Reguły nie weryfikują faktów, nie rozumieją kontekstu ani zależności i mogą pomijać lub błędnie klasyfikować zdania. Nie generują faktów ani pozornej oceny pewności. `REMOTE_LLM` i `LOCAL_LLM` są tylko dozwolonymi oznaczeniami kontraktu, bez implementacji i połączeń sieciowych.
 
 W tej wersji jest jedna trwała analiza na `Capture`. Ponowne generowanie i ponowne otwieranie zakończonej weryfikacji nie są dostępne; można wrócić do częściowej weryfikacji. `APPLIED` oznacza zapis efektów zatwierdzonych elementów, a nie przyjęcie decyzji ani zatwierdzenie wpływu. Stan UI zmienia się dopiero po zakończeniu transakcji.
 
-W Etapie 4.5 interfejs używa nazw „Skrzynka” i „weryfikacja”. Etykiety źródeł, statusów i dostawców są scentralizowane w modułach domenowych. Status pojedynczej decyzji i filtr mają osobne etykiety. Typ `FACT` jest prezentowany jako „Twierdzenia do potwierdzenia”; metadane analizy są w sekcji „Szczegóły techniczne”. Ścieżka `/inbox`, schemat IndexedDB v4 i zapisane wartości techniczne pozostają bez zmian.
+W Etapie 4.5 interfejs używa nazw „Skrzynka” i „weryfikacja”. Etykiety źródeł, statusów i dostawców są scentralizowane w modułach domenowych. Status pojedynczej decyzji i filtr mają osobne etykiety. Typ `FACT` jest prezentowany jako „Twierdzenia do potwierdzenia”; metadane analizy są w sekcji „Szczegóły techniczne”. Ścieżka `/inbox` i zapisane wartości techniczne pozostają bez zmian.
+
+## Realizacja projektu (Etap 5)
+
+Na ekranie projektu można tworzyć i edytować obszary, uporządkowane etapy oraz elementy pracy: zadania, badania, eksperymenty, kontakty, zakupy, dalsze działania i oczekiwanie. Element może działać bez obszaru i etapu. Powiązania z decyzjami są relacją wiele-do-wielu, widoczną w obu kierunkach; wcześniejsze ręczne odnośniki pozostają zachowane.
+
+Otwarte pytania mają odpowiedź i rozstrzygnięcie, a blokady wagę i stan rozwiązania. „Gdzie skończyłem?” pokazuje aktywne blokady, otwarte pytania i pięć najważniejszych niezakończonych elementów pracy. Nie nadpisuje ręcznego następnego kroku.
+
+W zastosowanych analizach także starsze, zachowane działania i pytania można przekształcić osobnym przyciskiem. Potwierdzenie wymaga projektu, a dla działania także rodzaju pracy. Powiązanie ze źródłem pozostaje trwałe; oryginał i analiza nie zmieniają się, a ponowna konwersja jest blokowana.
 
 ## Dane lokalne i granice prywatności
 

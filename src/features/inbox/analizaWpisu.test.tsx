@@ -37,7 +37,7 @@ describe('Review CaptureAnalysis w Inbox', () => {
     await kliknij(uzytkownik, within(panel).getByText('Szczegóły techniczne'));
     expect(within(panel).getByText('Typ dostawcy: Analiza regułowa')).toBeVisible();
     await kliknij(uzytkownik, screen.getByRole('button', { name: 'Rozpocznij weryfikację' }));
-    expect(within(panel).getByText(/W trakcie weryfikacji/)).toBeInTheDocument();
+    expect(await within(panel).findByText(/W trakcie weryfikacji/)).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Zakończ weryfikację' })).toBeDisabled();
     const decyzje = screen.getByRole('region', { name: 'Potencjalne decyzje' });
     await kliknij(uzytkownik, within(decyzje).getByRole('button', { name: 'Edytuj' }));
@@ -52,7 +52,7 @@ describe('Review CaptureAnalysis w Inbox', () => {
     expect(await screen.findByRole('button', { name: 'Zastosuj zatwierdzone' })).toBeEnabled();
     expect(await repozytorium.pobierzDecyzje()).toEqual([]);
     expect((await repozytorium.pobierzWpisy())[0].status).toBe('REVIEWED');
-    expect(within(panel).getByText(/· Zweryfikowana/)).toBeInTheDocument();
+    expect(await within(panel).findByText(/· Zweryfikowana/)).toBeInTheDocument();
     await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zastosuj zatwierdzone' }));
     const odnosnik = await screen.findByRole('link', { name: 'Otwórz decyzję' });
     expect((await repozytorium.pobierzDecyzje())[0]).toMatchObject({ tytul: 'Zapis lokalny po korekcie', status: 'PROPOSED', wpisZrodlowyId: 'w1' });

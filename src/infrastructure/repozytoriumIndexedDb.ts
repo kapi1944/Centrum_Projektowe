@@ -3,6 +3,7 @@ import { przygotujAkcjeWpisu, utworzProjekt, utworzWpis, zdarzenieUtworzenia, zm
 import type { RepozytoriumProjektowe } from '../domain/repozytorium';
 import { wykonajOperacjeUstalen, type AnalizaWplywu, type Decyzja, type StanUstalen } from '../domain/ustalenia';
 import { wykonajAnalizeWpisu, type AnalizaWpisu } from '../domain/analizaWpisu';
+import { wykonajRealizacje, type StanRealizacji } from '../domain/realizacja';
 
 export function utworzRepozytoriumIndexedDb(
   nazwaBazy = 'centrum-projektowe',
@@ -13,7 +14,7 @@ export function utworzRepozytoriumIndexedDb(
         odrzuc(new Error('Ta przeglądarka nie udostępnia IndexedDB.'));
         return;
       }
-      const zadanie = indexedDB.open(nazwaBazy, 4);
+      const zadanie = indexedDB.open(nazwaBazy, 5);
       let zablokowano = false;
       zadanie.onupgradeneeded = (zdarzenie) => {
         const baza = zadanie.result;
@@ -31,6 +32,14 @@ export function utworzRepozytoriumIndexedDb(
         if (zdarzenie.oldVersion < 4) {
           const analizy = baza.createObjectStore('analizyWpisow', { keyPath: 'id' });
           analizy.createIndex('wpisId', 'wpisId', { unique: true });
+        }
+        if (zdarzenie.oldVersion < 5) {
+          for (const nazwa of ['obszary', 'etapy', 'elementyPracy', 'pytania', 'blokady']) {
+            const magazyn = baza.createObjectStore(nazwa, { keyPath: 'id' });
+            magazyn.createIndex('projektId', 'projektId');
+            if (nazwa === 'elementyPracy') magazyn.createIndex('decyzjaIds', 'decyzjaIds', { multiEntry: true });
+            if (nazwa === 'elementyPracy' || nazwa === 'pytania') magazyn.createIndex('elementZrodlowy', ['pochodzenie.analizaWpisuId', 'pochodzenie.elementAnalizyId'], { unique: true });
+          }
         }
         if (zdarzenie.oldVersion === 1) {
           const transakcja = zadanie.transaction!;
@@ -98,7 +107,7 @@ export function utworzRepozytoriumIndexedDb(
     const baza = await otworzBaze();
     try {
       return await new Promise<T>((rozwiaz, odrzuc) => {
-        const transakcja = baza.transaction(['projekty', 'wpisy', 'zdarzenia', 'decyzje', 'analizyWplywu', 'analizyWpisow'], 'readwrite');
+        const transakcja = baza.transaction(['projekty', 'wpisy', 'zdarzenia', 'decyzje', 'analizyWplywu', 'analizyWpisow', 'obszary', 'etapy', 'elementyPracy', 'pytania', 'blokady'], 'readwrite');
         let wynik: T;
         let bladOperacji: unknown;
         transakcja.oncomplete = () => rozwiaz(wynik);
@@ -131,6 +140,35 @@ export function utworzRepozytoriumIndexedDb(
   }
 
   return {
+    pobierzRealizacje: async () => {
+      const baza = await otworzBaze();
+      try {
+        return await new Promise<StanRealizacji>((rozwiaz, odrzuc) => {
+          const nazwy = ['obszary', 'etapy', 'elementyPracy', 'pytania', 'blokady'] as const;
+          const transakcja = baza.transaction(nazwy, 'readonly');
+          const [obszary, etapy, elementyPracy, pytania, blokady] = nazwy.map((nazwa) => transakcja.objectStore(nazwa).getAll());
+          transakcja.oncomplete = () => rozwiaz({ obszary: obszary.result, etapy: etapy.result, elementyPracy: elementyPracy.result, pytania: pytania.result, blokady: blokady.result });
+          transakcja.onabort = () => odrzuc(new Error('Nie udało się odczytać realizacji projektu.'));
+        });
+      } finally { baza.close(); }
+    },
+    wykonajOperacjeRealizacji: (operacja, kontekst) => zapisz((transakcja, zakoncz, _odczytajProjekt, przerwij) => {
+      const nazwy = ['obszary', 'etapy', 'elementyPracy', 'pytania', 'blokady', 'projekty', 'decyzje', 'wpisy', 'analizyWpisow'] as const;
+      const zadania = nazwy.map((nazwa) => transakcja.objectStore(nazwa).getAll());
+      let pozostalo = zadania.length;
+      for (const zadanie of zadania) zadanie.onsuccess = () => {
+        if (--pozostalo !== 0) return;
+        try {
+          const [obszary, etapy, elementyPracy, pytania, blokady, projekty, decyzje, wpisy, analizyWpisow] = zadania.map((zadanie) => zadanie.result);
+          const wynik = wykonajRealizacje({ obszary, etapy, elementyPracy, pytania, blokady, projekty, decyzje, wpisy, analizyWpisow }, operacja, kontekst);
+          if (operacja.rodzaj === 'konwertuj' || operacja.wersja === undefined) transakcja.objectStore(wynik.zapis.magazyn).add(wynik.zapis.rekord);
+          else transakcja.objectStore(wynik.zapis.magazyn).put(wynik.zapis.rekord);
+          transakcja.objectStore('projekty').put(wynik.projekt);
+          for (const zdarzenie of wynik.zdarzenia) transakcja.objectStore('zdarzenia').add(zdarzenie);
+          zakoncz(wynik);
+        } catch (blad) { przerwij(blad); }
+      };
+    }),
     pobierzAnalizyWpisow: () => pobierzWszystkie<AnalizaWpisu>('analizyWpisow'),
     wykonajOperacjeAnalizyWpisu: (operacja, kontekst) => zapisz((transakcja, zakoncz, _odczytajProjekt, przerwij) => {
       const projekty = transakcja.objectStore('projekty').getAll();

@@ -26,9 +26,9 @@ export function Aplikacja({ repozytorium }: { repozytorium: RepozytoriumProjekto
       {rejestr.stan === 'gotowy' && <Routes>
         <Route path="/" element={<Start projekty={rejestr.projekty} wpisy={rejestr.wpisy} />} />
         <Route path="/projekty" element={<Projekty projekty={rejestr.projekty} dodajProjekt={rejestr.dodajProjekt} />} />
-        <Route path="/projekty/:projektId" element={<Projekt key={lokalizacja.pathname} projekty={rejestr.projekty} zdarzenia={rejestr.zdarzenia} zmienProjekt={rejestr.zmienProjekt} />} />
-        <Route path="/projekty/:projektId/ustalenia" element={<Ustalenia key={lokalizacja.pathname} projekty={rejestr.projekty} wpisy={rejestr.wpisy} decyzje={rejestr.decyzje} analizy={rejestr.analizy} wykonaj={rejestr.wykonajUstalenie} />} />
-        <Route path="/inbox" element={<Inbox projekty={rejestr.projekty} wpisy={rejestr.wpisy} dodajWpis={rejestr.dodajWpis} wykonajAkcjeWpisu={rejestr.wykonajAkcjeWpisu} analizy={rejestr.analizy} wykonajUstalenie={rejestr.wykonajUstalenie} analizyWpisow={rejestr.analizyWpisow} analizujWpis={rejestr.analizujWpis} wykonajAnalizeWpisu={rejestr.wykonajAnalizeWpisu} />} />
+        <Route path="/projekty/:projektId" element={<Projekt key={lokalizacja.pathname} projekty={rejestr.projekty} zdarzenia={rejestr.zdarzenia} zmienProjekt={rejestr.zmienProjekt} realizacja={rejestr.realizacja} decyzje={rejestr.decyzje} wykonajRealizacje={rejestr.wykonajRealizacje} />} />
+        <Route path="/projekty/:projektId/ustalenia" element={<Ustalenia key={lokalizacja.pathname} projekty={rejestr.projekty} wpisy={rejestr.wpisy} decyzje={rejestr.decyzje} analizy={rejestr.analizy} wykonaj={rejestr.wykonajUstalenie} elementyPracy={rejestr.realizacja.elementyPracy} />} />
+        <Route path="/inbox" element={<Inbox projekty={rejestr.projekty} wpisy={rejestr.wpisy} dodajWpis={rejestr.dodajWpis} wykonajAkcjeWpisu={rejestr.wykonajAkcjeWpisu} analizy={rejestr.analizy} wykonajUstalenie={rejestr.wykonajUstalenie} analizyWpisow={rejestr.analizyWpisow} analizujWpis={rejestr.analizujWpis} wykonajAnalizeWpisu={rejestr.wykonajAnalizeWpisu} realizacja={rejestr.realizacja} wykonajRealizacje={rejestr.wykonajRealizacje} />} />
         <Route path="*" element={<><h1>Nie znaleziono strony</h1><NavLink to="/">Wróć na start</NavLink></>} />
       </Routes>}
     </main>

@@ -36,6 +36,7 @@ describe('Shell aplikacji', () => {
 
   it('pokazuje błąd odczytu zamiast pozorować pustą bazę', async () => {
     const repozytorium: RepozytoriumProjektowe = {
+      pobierzRealizacje: vi.fn().mockResolvedValue({ obszary: [], etapy: [], elementyPracy: [], pytania: [], blokady: [] }), wykonajOperacjeRealizacji: vi.fn(),
       pobierzProjekty: vi.fn().mockRejectedValue(new Error('Brak storage')),
       pobierzWpisy: vi.fn().mockResolvedValue([]),
       dodajProjekt: vi.fn(), dodajWpis: vi.fn(),
@@ -52,6 +53,7 @@ describe('Shell aplikacji', () => {
   it('zachowuje treść formularza po błędzie zapisu', async () => {
     const osoba = uzytkownik.setup();
     const repozytorium: RepozytoriumProjektowe = {
+      pobierzRealizacje: vi.fn().mockResolvedValue({ obszary: [], etapy: [], elementyPracy: [], pytania: [], blokady: [] }), wykonajOperacjeRealizacji: vi.fn(),
       pobierzProjekty: vi.fn().mockResolvedValue([]), pobierzWpisy: vi.fn().mockResolvedValue([]),
       dodajProjekt: vi.fn(), dodajWpis: vi.fn().mockRejectedValue(new Error('Brak miejsca')),
       zmienProjekt: vi.fn(), pobierzZdarzenia: vi.fn().mockResolvedValue([]),

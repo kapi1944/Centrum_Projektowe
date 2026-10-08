@@ -2,8 +2,11 @@ import type { KontekstZapisu, Projekt, Wpis, WynikZmianyProjektu, ZdarzenieAktyw
 import type { AkcjaWpisu, WynikZmianyWpisu } from './modele';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen, WynikUstalen } from './ustalenia';
 import type { AnalizaWpisu, OperacjaAnalizyWpisu, WynikAnalizyWpisu } from './analizaWpisu';
+import type { OperacjaRealizacji, StanRealizacji, WynikRealizacji } from './realizacja';
 
 export interface RepozytoriumProjektowe {
+  pobierzRealizacje(): Promise<StanRealizacji>;
+  wykonajOperacjeRealizacji(operacja: OperacjaRealizacji, kontekst: KontekstZapisu): Promise<WynikRealizacji>;
   pobierzAnalizyWpisow(): Promise<AnalizaWpisu[]>;
   wykonajOperacjeAnalizyWpisu(operacja: OperacjaAnalizyWpisu, kontekst: KontekstZapisu): Promise<WynikAnalizyWpisu>;
   pobierzProjekty(): Promise<Projekt[]>;

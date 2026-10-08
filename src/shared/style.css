@@ -35,3 +35,7 @@ article > button, article > select { margin: .5rem; }
 article > label { display: block; }
 details { margin: .75rem 0; }
 summary { cursor: pointer; }
+
+.formularz-realizacji label { display: grid; gap: .3rem; }
+.formularz-realizacji label:has(input[type="checkbox"]) { display: flex; align-items: center; }
+[id^="praca-"], [id^="pytanie-"], [id^="blokada-"] { scroll-margin-top: 1rem; }

@@ -10,7 +10,7 @@ Etap 3 pierwotnie pominięto. Etap **3R** dołącza `CaptureAnalysis` do już is
 | 3R. Analiza wpisów | Osobna analiza, AnalysisProvider, reguły lokalne, weryfikacja i zastosowanie do istniejących `Decision` / `ImpactAnalysis` | Zaimplementowany; oryginał niezmienny, zatwierdzanie jawne, audyt i wycofanie transakcji |
 | 4. Decyzje, zastępowanie i analiza wpływu | Decyzje, źródła, wersje, zastępowanie, relacyjny wpływ i osobne zatwierdzanie propozycji | Istniejąca implementacja zachowana i połączona z 3R |
 | 4.5. Spójność interfejsu | Polskie etykiety, weryfikacja tekstów, szczegóły techniczne i rozdzielenie statusów od filtrów | Zaimplementowany; bez zmiany schematu i tras |
-| 5. Wykonanie | Obszary, etapy, zadania, elementy pracy, pytania i blokery | Plan; rekomendacje i pytania z 3R pozostają elementami analizy |
+| 5. Wykonanie | Obszary, etapy, siedem typów pracy, pytania i blokady | Zaimplementowany; relacje z decyzjami, jawna konwersja starszych analiz, migracja v5 i historia |
 | 6. Dokumentacja / repozytoria / zasoby | Dokumenty, ręczne powiązania z repozytoriami, katalog zasobów | Plan |
 | 7. Zdrowie / ekran Start | Ocena zdrowia z dowodów, aktualność kontekstu, blokady, następne kroki | Plan |
 | 8+. Integracje | Opcjonalne źródła zewnętrzne i dostawcy modeli językowych | Wymagają osobnego polecenia; brak API i integracji w 3R |
@@ -25,6 +25,6 @@ Etap 3 pierwotnie pominięto. Etap **3R** dołącza `CaptureAnalysis` do już is
 
 - IndexedDB v4 dodaje wyłącznie magazyn analiz; dane i historia Etapów 0–4 pozostają zachowane.
 - Jedna analiza na `Capture`, trwała częściowa weryfikacja i audyt edycji/odrzuceń; brak regeneracji i otwierania zakończonej weryfikacji.
-- Brak zewnętrznego API sztucznej inteligencji, lokalnego modelu językowego, `Task`, `WorkItem`, pełnej encji `OpenQuestion`, `Blocker`, `Document`, GitHub API i `ProjectHealth`.
+- Brak zewnętrznego API sztucznej inteligencji, lokalnego modelu językowego, `Document`, GitHub API i `ProjectHealth`. Etap 5 dodaje osobny, potwierdzany przepływ tworzenia pracy i pytań z zachowanych elementów analizy.
 - `APPLIED` oznacza udany zapis efektów analizy, a nie wdrożenie decyzji ani zatwierdzenie wszystkich propozycji wpływu.
-- Testy automatyczne obejmują regresję istniejących 43 przypadków, analizę, weryfikację, zastosowanie, informacje o pochodzeniu, migracje, współbieżność, wycofanie transakcji i ochronę nieaktualnego wpływu. Środowisko jsdom/fake-indexeddb nie zastępuje próby trwałości w rzeczywistej przeglądarce.
+- Testy automatyczne obejmują regresję istniejących przypadków, analizę, weryfikację, zastosowanie, informacje o pochodzeniu, migracje, współbieżność, wycofanie transakcji i ochronę nieaktualnego wpływu. Środowisko jsdom/fake-indexeddb nie zastępuje próby trwałości w rzeczywistej przeglądarce.

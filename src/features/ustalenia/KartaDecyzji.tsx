@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { etykietyZrodel, type Projekt, type Wpis } from '../../domain/modele';
 import { statusyDecyzji, typyElementow, type Decyzja, type OperacjaUstalen, type AnalizaWplywu, type StatusDecyzji } from '../../domain/ustalenia';
 import { formatujDate } from '../../shared/formatujDate';
+import { typyPracy, statusyPracy, type ElementPracy } from '../../domain/realizacja';
 import { FormularzDecyzji } from './FormularzDecyzji';
 import { PanelWplywu } from './PanelWplywu';
 
-export function KartaDecyzji({ decyzja, decyzje, projekty, wpisy, analizy, projektId, wykonaj }: {
+export function KartaDecyzji({ decyzja, decyzje, projekty, wpisy, analizy, projektId, wykonaj, elementyPracy }: {
+  elementyPracy: ElementPracy[];
   decyzja: Decyzja; decyzje: Decyzja[]; projekty: Projekt[]; wpisy: Wpis[];
   analizy: AnalizaWplywu[]; projektId: string; wykonaj: (operacja: OperacjaUstalen) => Promise<void>;
 }) {
@@ -40,6 +42,8 @@ export function KartaDecyzji({ decyzja, decyzje, projekty, wpisy, analizy, proje
       <details><summary>Szczegóły techniczne</summary><p>Nazwa dostawcy: {decyzja.nazwaZrodla} · Identyfikator analizy: {decyzja.analizaWpisuId} · Identyfikator elementu: {decyzja.elementAnalizyId}</p></details>
     </>}
     {wpis && <details><summary>Powiązany wpis — oryginał</summary><p className="surowy-wpis">{wpis.trescOryginalna}</p><Link to={`/inbox?wpis=${encodeURIComponent(wpis.id)}`}>Otwórz wpis w Skrzynce</Link></details>}
+    <h3>Powiązane elementy pracy</h3>
+    {elementyPracy.some((praca) => praca.decyzjaIds.includes(decyzja.id)) ? <ul>{elementyPracy.filter((praca) => praca.decyzjaIds.includes(decyzja.id)).map((praca) => <li key={praca.id}><Link to={`/projekty/${praca.projektId}#praca-${praca.id}`}>{praca.tytul}</Link> · {typyPracy[praca.typ]} · {statusyPracy[praca.status]}</li>)}</ul> : <p>Brak powiązanych elementów pracy. Możesz powiązać decyzje podczas tworzenia lub edycji pracy w projekcie.</p>}
     {decyzja.notatki && <p className="surowy-wpis">Notatki: {decyzja.notatki}</p>}
     <ul>{decyzja.powiazaneElementy.map((element, numer) => <li key={numer}>{typyElementow[element.typ]}: {element.tytul} ({element.id}) — odnośnik ręczny</li>)}</ul>
     {decyzja.zastapionaPrzezId && <p>Zastąpione przez {odnosnik(decyzja.zastapionaPrzezId)}</p>}
