@@ -27,12 +27,13 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt }: {
     finally { ustawArchiwizowanie(false); }
   }
 
-  const historia = zdarzenia.filter((zdarzenie) => zdarzenie.projektId === projekt.id)
+  const historia = zdarzenia.filter((zdarzenie) => zdarzenie.projektId === projekt.id || zdarzenie.projektIds?.includes(projekt.id))
     .sort((lewe, prawe) => prawe.utworzono.localeCompare(lewe.utworzono)).slice(0, 20);
 
   return <>
     <Link to="/projekty">Wszystkie projekty</Link>
     <h1>{projekt.nazwa}</h1>
+    <Link to={`/projekty/${projekt.id}/ustalenia`}>Ustalenia projektu</Link>
     <p>{statusyProjektu[projekt.status]}</p>
     {projekt.zarchiwizowano && <p role="status">Projekt archiwalny od {formatujDate(projekt.zarchiwizowano)}. Dane i historia zostały zachowane.</p>}
     <p className="surowy-wpis">{projekt.opis || 'Brak opisu.'}</p>
@@ -64,7 +65,7 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt }: {
       <p>Ostatnie 20 zdarzeń. Historia jest rejestrowana od Etapu 1.</p>
       {historia.length === 0 ? <p>Brak zarejestrowanych zdarzeń.</p> : <ol className="lista-rekordow">{historia.map((zdarzenie) => <li key={zdarzenie.id}>
         <strong>{zdarzenie.tytul}</strong>
-        <p>{formatujDate(zdarzenie.utworzono)} · {zdarzenie.typEncji === 'PROJECT' ? 'Projekt' : 'Wpis'} · {zdarzenie.zrodlo.nazwa} ({zdarzenie.zrodlo.typ})</p>
+        <p>{formatujDate(zdarzenie.utworzono)} · {{ PROJECT: 'Projekt', CAPTURE: 'Wpis', DECISION: 'Decyzja', IMPACT: 'Wpływ' }[zdarzenie.typEncji]} · {zdarzenie.zrodlo.nazwa} ({zdarzenie.zrodlo.typ})</p>
         {zdarzenie.opis && <p className="surowy-wpis">{zdarzenie.opis}</p>}
       </li>)}</ol>}
     </section>

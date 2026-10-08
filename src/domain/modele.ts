@@ -49,10 +49,13 @@ export type WartoscMetadanych = string | number | boolean | null | WartoscMetada
 export interface ZdarzenieAktywnosci {
   readonly id: string;
   readonly projektId: string | null;
-  readonly typEncji: 'PROJECT' | 'CAPTURE';
+  readonly projektIds?: string[];
+  readonly typEncji: 'PROJECT' | 'CAPTURE' | 'DECISION' | 'IMPACT';
   readonly encjaId: string | null;
   readonly typZdarzenia: 'PROJECT_CREATED' | 'PROJECT_UPDATED' | 'PROJECT_ARCHIVED' | 'PROJECT_RESUME_UPDATED'
-    | 'CAPTURE_CREATED' | 'CAPTURE_ASSIGNED' | 'CAPTURE_DEFERRED' | 'CAPTURE_DISMISSED';
+    | 'CAPTURE_CREATED' | 'CAPTURE_ASSIGNED' | 'CAPTURE_DEFERRED' | 'CAPTURE_DISMISSED'
+    | 'DECISION_CREATED' | 'DECISION_STATUS_CHANGED' | 'DECISION_SUPERSEDED'
+    | 'IMPACT_ANALYZED' | 'IMPACT_APPROVED' | 'IMPACT_REJECTED';
   readonly tytul: string;
   readonly opis?: string;
   readonly utworzono: string;

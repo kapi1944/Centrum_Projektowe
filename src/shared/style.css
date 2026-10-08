@@ -30,3 +30,8 @@ footer { max-width: 960px; padding: 1rem; margin: 0 auto; font-size: .875rem; }
 .karty-projektow { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 1rem; }
 .karty-projektow li { margin: 0; min-width: 0; }
 .karty-projektow h4 { margin-bottom: .25rem; }
+article { background: white; border: 1px solid #d4dae2; border-radius: .4rem; padding: 1rem; margin: 1rem 0; }
+article > button, article > select { margin: .5rem; }
+article > label { display: block; }
+details { margin: .75rem 0; }
+summary { cursor: pointer; }

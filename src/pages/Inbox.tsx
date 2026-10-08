@@ -1,14 +1,18 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { etykietyStatusowWpisu, type AkcjaWpisu, type Projekt, type Wpis } from '../domain/modele';
 import { AkcjeWpisu } from '../features/inbox/AkcjeWpisu';
 import { formatujDate } from '../shared/formatujDate';
+import type { AnalizaWplywu, OperacjaUstalen } from '../domain/ustalenia';
+import { PanelWplywu } from '../features/ustalenia/PanelWplywu';
 
-export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu }: {
+export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, wykonajUstalenie }: {
   projekty: Projekt[];
   wpisy: Wpis[];
   dodajWpis: (tresc: string, projektId: string | null) => Promise<void>;
   wykonajAkcjeWpisu: (id: string, akcja: AkcjaWpisu) => Promise<void>;
+  analizy: AnalizaWplywu[];
+  wykonajUstalenie: (operacja: OperacjaUstalen) => Promise<void>;
 }) {
   const [tresc, ustawTresc] = useState('');
   const [projektId, ustawProjektId] = useState('');
@@ -18,6 +22,8 @@ export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu }: {
   const [pokazOdrzucone, ustawPokazOdrzucone] = useState(false);
   const poleWpisu = useRef<HTMLTextAreaElement>(null);
   const blokadaZapisu = useRef(false);
+  const [parametry] = useSearchParams();
+  const widoczneWpisy = wpisy.filter((wpis) => pokazOdrzucone || wpis.status !== 'DISMISSED' || wpis.id === parametry.get('wpis'));
 
   async function zapisz(zdarzenie: FormEvent<HTMLFormElement>) {
     zdarzenie.preventDefault();
@@ -62,10 +68,11 @@ export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu }: {
     </form>
     <h2>Zapisane wpisy</h2>
     <label><input type="checkbox" checked={pokazOdrzucone} onChange={(zdarzenie) => ustawPokazOdrzucone(zdarzenie.target.checked)} /> Pokaż odrzucone</label>
-    {wpisy.filter((wpis) => pokazOdrzucone || wpis.status !== 'DISMISSED').length === 0 ? <p>Brak wpisów w tym widoku.</p> : <ul className="lista-rekordow">{[...wpisy].filter((wpis) => pokazOdrzucone || wpis.status !== 'DISMISSED').sort((lewy, prawy) => prawy.utworzono.localeCompare(lewy.utworzono)).map((wpis) => <li key={wpis.id}>
+    {widoczneWpisy.length === 0 ? <p>Brak wpisów w tym widoku.</p> : <ul className="lista-rekordow">{[...widoczneWpisy].sort((lewy, prawy) => prawy.utworzono.localeCompare(lewy.utworzono)).map((wpis) => <li key={wpis.id} id={`wpis-${wpis.id}`}>
       <p className="surowy-wpis">{wpis.trescOryginalna}</p>
       <small>{wpis.projektId ? <Link to={`/projekty/${wpis.projektId}`}>{projekty.find((projekt) => projekt.id === wpis.projektId)?.nazwa ?? 'Nieznany projekt'}</Link> : 'Bez przypisania'} · {formatujDate(wpis.utworzono)} · {etykietyStatusowWpisu[wpis.status]}{wpis.odlozonoDoAnalizy ? ' · Do analizy później' : ''}</small>
       <AkcjeWpisu wpis={wpis} projekty={projekty} wykonajAkcje={wykonajAkcjeWpisu} />
+      <PanelWplywu zrodlo={{ typ: 'CAPTURE', id: wpis.id }} analizy={analizy} wykonaj={wykonajUstalenie} />
     </li>)}</ul>}
   </>;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { DaneProjektu, KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci, ZmianaProjektu } from '../../domain/modele';
 import type { AkcjaWpisu } from '../../domain/modele';
+import type { AnalizaWplywu, Decyzja, OperacjaUstalen } from '../../domain/ustalenia';
 import { sprawdzDaneProjektu, utworzProjekt, utworzWpis } from '../../domain/operacje';
 import type { RepozytoriumProjektowe } from '../../domain/repozytorium';
 
@@ -8,17 +9,21 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe) {
   const [projekty, ustawProjekty] = useState<Projekt[]>([]);
   const [wpisy, ustawWpisy] = useState<Wpis[]>([]);
   const [zdarzenia, ustawZdarzenia] = useState<ZdarzenieAktywnosci[]>([]);
+  const [decyzje, ustawDecyzje] = useState<Decyzja[]>([]);
+  const [analizy, ustawAnalizy] = useState<AnalizaWplywu[]>([]);
   const [stan, ustawStan] = useState<'ladowanie' | 'gotowy' | 'blad'>('ladowanie');
   const [blad, ustawBlad] = useState('');
 
   useEffect(() => {
     let aktywny = true;
-    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia()])
-      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia]) => {
+    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia(), repozytorium.pobierzDecyzje(), repozytorium.pobierzAnalizyWplywu()])
+      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia, odczytaneDecyzje, odczytaneAnalizy]) => {
         if (!aktywny) return;
         ustawProjekty(odczytaneProjekty);
         ustawWpisy(odczytaneWpisy);
         ustawZdarzenia(odczytaneZdarzenia);
+        ustawDecyzje(odczytaneDecyzje);
+        ustawAnalizy(odczytaneAnalizy);
         ustawStan('gotowy');
       })
       .catch(() => {
@@ -66,5 +71,13 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe) {
       ? poprzednie.map((poprzedni) => poprzedni.id === projekt.id ? projekt : poprzedni) : [...poprzednie, projekt]);
   }
 
-  return { projekty, wpisy, zdarzenia, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu };
+  async function wykonajUstalenie(operacja: OperacjaUstalen) {
+    const wynik = await repozytorium.wykonajOperacjeUstalen(operacja, utworzKontekst());
+    ustawDecyzje((poprzednie) => [...poprzednie.filter((decyzja) => !wynik.decyzje.some((nowa) => nowa.id === decyzja.id)), ...wynik.decyzje]);
+    ustawAnalizy((poprzednie) => [...poprzednie.filter((analiza) => !wynik.analizy.some((nowa) => nowa.id === analiza.id)), ...wynik.analizy]);
+    ustawProjekty((poprzednie) => poprzednie.map((projekt) => wynik.projekty.find((nowy) => nowy.id === projekt.id) ?? projekt));
+    ustawZdarzenia((poprzednie) => [...poprzednie, ...wynik.zdarzenia]);
+  }
+
+  return { projekty, wpisy, zdarzenia, decyzje, analizy, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie };
 }

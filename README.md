@@ -23,21 +23,24 @@ npm run preview
 
 React + TypeScript + Vite + React Router. Vitest, Testing Library i fake-indexeddb sprawdzają domenę, persistence oraz podstawowy przepływ UI. `build` tworzy katalog `dist`. Hosting statyczny musi przekierowywać ścieżki aplikacji (np. `/inbox`) do `index.html`.
 
-## Zakres etapu 0
+## Aktualny zakres (Etapy 0–2 i 4)
 
 - Shell: Start, Projekty, Inbox oraz obsługa nieznanej trasy.
-- Tworzenie projektów i zapis surowych wpisów, opcjonalnie przypisanych do istniejącego projektu.
+- Tworzenie, edycja i archiwizacja projektów, dashboard oraz ręczny punkt powrotu „Gdzie skończyłem?”.
+- Szybki zapis surowych wpisów, przypisywanie do projektu i tworzenie projektu z wpisu.
 - Oryginał wpisu zachowany bez przycinania białych znaków i bez nadpisywania.
-- IndexedDB, wersja schematu 1; stan ładowania i błędy odczytu/zapisu.
-- Start pokazuje liczby faktycznych rekordów i ostatnio zapisany wpis.
+- IndexedDB, wersja schematu 3; migracje zachowują dane wersji 1 i 2.
+- Projekt → Ustalenia: decyzje z wieloma projektami, źródłami, statusami i historią zastępowania. Numery `DEC-XXXX` są nadawane w transakcji, a poprzednia decyzja pozostaje w rejestrze.
+- Analiza wpływu ze źródłem Capture lub Decision: kandydaci wynikają ze wspólnych projektów i jawnych odnośników. Każda propozycja jest zatwierdzana lub odrzucana osobno. Status decyzji i punkt powrotu mogą zmienić się dopiero po zatwierdzeniu; nieaktualne propozycje są blokowane.
+- Zmiany modelu i zdarzenia historii zapisują się atomowo. Oryginały Capture pozostają niezmienione.
 
-Analiza, propozycje zmian, zatwierdzanie, historia zmian modelu oraz pełne „Gdzie skończyłem?” nie są jeszcze zaimplementowane. Nie ma AI, integracji, backendu, kont ani danych demonstracyjnych.
+Etap 3 i CaptureAnalysis nie są zaimplementowane w tym repozytorium. Analiza wpływu nie interpretuje semantycznie tekstu. Powiązania z zadaniami, elementami pracy, blokerami i dokumentacją to ręczne odnośniki; zatwierdzenie wpływu na odnośnik zapisuje potrzebę przeglądu i nie modyfikuje zewnętrznego obiektu. Nie ma AI, integracji, backendu, kont ani danych demonstracyjnych.
 
 ## Dane lokalne i granice prywatności
 
 Dane są przypisane do przeglądarki, profilu i originu (protokół, host, port). Nie są wysyłane do serwera. Usunięcie danych witryny, utrata profilu albo tryb prywatny mogą spowodować utratę zapisów. Ta wersja nie zapewnia eksportu, kopii zapasowych, szyfrowania ani uwierzytelnienia. „Prywatna” oznacza przeznaczenie aplikacji, a nie kontrolę dostępu na współdzielonym urządzeniu.
 
-Zmiany z innej otwartej karty będą widoczne po odświeżeniu; synchronizacja kart nie jest częścią etapu 0. Dane pozostają dostępne po ponownym uruchomieniu aplikacji na tym samym originie. Nie ma jeszcze service workera ani obsługi uruchamiania aplikacji offline.
+Zmiany z innej otwartej karty będą widoczne po odświeżeniu; synchronizacja kart nie jest zaimplementowana. Dane pozostają dostępne po ponownym uruchomieniu aplikacji na tym samym originie. Nie ma jeszcze service workera ani obsługi uruchamiania aplikacji offline.
 
 ## Dokumentacja
 

@@ -1,6 +1,7 @@
 import type { KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci } from '../domain/modele';
 import { przygotujAkcjeWpisu, utworzProjekt, utworzWpis, zdarzenieUtworzenia, zmienProjekt } from '../domain/operacje';
 import type { RepozytoriumProjektowe } from '../domain/repozytorium';
+import { wykonajOperacjeUstalen, type AnalizaWplywu, type Decyzja, type StanUstalen } from '../domain/ustalenia';
 
 export function utworzRepozytoriumIndexedDb(
   nazwaBazy = 'centrum-projektowe',
@@ -11,7 +12,7 @@ export function utworzRepozytoriumIndexedDb(
         odrzuc(new Error('Ta przeglądarka nie udostępnia IndexedDB.'));
         return;
       }
-      const zadanie = indexedDB.open(nazwaBazy, 2);
+      const zadanie = indexedDB.open(nazwaBazy, 3);
       let zablokowano = false;
       zadanie.onupgradeneeded = (zdarzenie) => {
         const baza = zadanie.result;
@@ -19,7 +20,13 @@ export function utworzRepozytoriumIndexedDb(
           baza.createObjectStore('projekty', { keyPath: 'id' });
           baza.createObjectStore('wpisy', { keyPath: 'id' });
         }
-        baza.createObjectStore('zdarzenia', { keyPath: 'id' });
+        if (zdarzenie.oldVersion < 2) baza.createObjectStore('zdarzenia', { keyPath: 'id' });
+        if (zdarzenie.oldVersion < 3) {
+          const decyzje = baza.createObjectStore('decyzje', { keyPath: 'id' });
+          decyzje.createIndex('czytelneId', 'czytelneId', { unique: true });
+          decyzje.createIndex('projektIds', 'projektIds', { multiEntry: true });
+          baza.createObjectStore('analizyWplywu', { keyPath: 'id' });
+        }
         if (zdarzenie.oldVersion === 1) {
           const transakcja = zadanie.transaction!;
           const projekty = transakcja.objectStore('projekty').openCursor();
@@ -86,7 +93,7 @@ export function utworzRepozytoriumIndexedDb(
     const baza = await otworzBaze();
     try {
       return await new Promise<T>((rozwiaz, odrzuc) => {
-        const transakcja = baza.transaction(['projekty', 'wpisy', 'zdarzenia'], 'readwrite');
+        const transakcja = baza.transaction(['projekty', 'wpisy', 'zdarzenia', 'decyzje', 'analizyWplywu'], 'readwrite');
         let wynik: T;
         let bladOperacji: unknown;
         transakcja.oncomplete = () => rozwiaz(wynik);
@@ -119,6 +126,35 @@ export function utworzRepozytoriumIndexedDb(
   }
 
   return {
+    pobierzDecyzje: () => pobierzWszystkie<Decyzja>('decyzje'),
+    pobierzAnalizyWplywu: () => pobierzWszystkie<AnalizaWplywu>('analizyWplywu'),
+    wykonajOperacjeUstalen: (operacja, kontekst) => zapisz((transakcja, zakoncz, _odczytajProjekt, przerwij) => {
+      const projekty = transakcja.objectStore('projekty').getAll();
+      const wpisy = transakcja.objectStore('wpisy').getAll();
+      const decyzje = transakcja.objectStore('decyzje').getAll();
+      const analizy = transakcja.objectStore('analizyWplywu').getAll();
+      let pozostalo = 4;
+      for (const zadanie of [projekty, wpisy, decyzje, analizy]) zadanie.onsuccess = () => {
+        if (--pozostalo !== 0) return;
+        try {
+          const stan: StanUstalen = { projekty: projekty.result, wpisy: wpisy.result, decyzje: decyzje.result, analizy: analizy.result };
+          const wynik = wykonajOperacjeUstalen(stan, operacja, kontekst);
+          for (const decyzja of wynik.decyzje) {
+            const magazyn = transakcja.objectStore('decyzje');
+            if (stan.decyzje.some((poprzednia) => poprzednia.id === decyzja.id)) magazyn.put(decyzja);
+            else magazyn.add(decyzja);
+          }
+          for (const analiza of wynik.analizy) {
+            const magazyn = transakcja.objectStore('analizyWplywu');
+            if (stan.analizy.some((poprzednia) => poprzednia.id === analiza.id)) magazyn.put(analiza);
+            else magazyn.add(analiza);
+          }
+          for (const projekt of wynik.projekty) transakcja.objectStore('projekty').put(projekt);
+          for (const zdarzenie of wynik.zdarzenia) transakcja.objectStore('zdarzenia').add(zdarzenie);
+          zakoncz(wynik);
+        } catch (blad) { przerwij(blad); }
+      };
+    }),
     pobierzProjekty: () => pobierzWszystkie<Projekt>('projekty'),
     dodajProjekt: (projekt, kontekst) => zapisz<ZdarzenieAktywnosci>((transakcja, zakoncz) => {
       const zdarzenie = zdarzenieUtworzenia(projekt, kontekst);
