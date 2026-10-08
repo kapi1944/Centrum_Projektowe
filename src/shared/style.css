@@ -1,0 +1,26 @@
+:root { font-family: system-ui, sans-serif; color: #202b3b; background: #f5f6f8; line-height: 1.6; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+header { padding: 1rem max(1rem, calc((100% - 960px) / 2)); background: white; border-bottom: 1px solid #d4dae2; }
+nav, .odnosniki { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: .75rem; }
+a { color: #194d9a; text-underline-offset: .2em; }
+nav a[aria-current="page"] { font-weight: 700; }
+main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem; min-height: 65vh; }
+h1 { line-height: 1.25; }
+h1, h2, p, li { overflow-wrap: anywhere; }
+h2 { font-size: 1.2rem; }
+section, form, .lista-rekordow li { background: white; border: 1px solid #d4dae2; border-radius: .4rem; padding: 1rem; margin: 1rem 0; }
+form { display: grid; gap: .6rem; }
+input, textarea, select, button { font: inherit; padding: .65rem; border: 1px solid #78869a; border-radius: .25rem; max-width: 100%; min-width: 0; }
+textarea { resize: vertical; }
+button { background: #194d9a; color: white; cursor: pointer; justify-self: start; }
+button:disabled { opacity: .6; cursor: default; }
+:focus-visible { outline: 3px solid #af5800; outline-offset: 3px; }
+.lista-rekordow { list-style: none; padding: 0; }
+.surowy-wpis { white-space: pre-wrap; overflow-wrap: anywhere; }
+small, footer { color: #49566a; }
+footer { max-width: 960px; padding: 1rem; margin: 0 auto; font-size: .875rem; }
+[role="alert"] { color: #9f1b1b; }
+[role="status"]:empty { display: none; }
+.pomin-nawigacje { position: absolute; left: 1rem; top: -5rem; background: white; padding: .5rem; }
+.pomin-nawigacje:focus { top: .5rem; }
