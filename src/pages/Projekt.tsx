@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { statusyProjektu, type Projekt as ModelProjektu, type ZdarzenieAktywnosci, type ZmianaProjektu } from '../domain/modele';
 import { FormularzProjektu } from '../features/projekty/FormularzProjektu';
+import { FormularzPunktuPowrotu } from '../features/projekty/FormularzPunktuPowrotu';
 import { formatujDate } from '../shared/formatujDate';
 
 export function Projekt({ projekty, zdarzenia, zmienProjekt }: {
@@ -14,6 +15,7 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt }: {
   const [blad, ustawBlad] = useState('');
   const [archiwizowanie, ustawArchiwizowanie] = useState(false);
   const [edycja, ustawEdycje] = useState(false);
+  const [edycjaPunktu, ustawEdycjePunktu] = useState(false);
   if (!projekt) return <><h1>Nie znaleziono projektu</h1><Link to="/projekty">Wróć do projektów</Link></>;
 
   async function archiwizuj() {
@@ -36,13 +38,19 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt }: {
     <p className="surowy-wpis">{projekt.opis || 'Brak opisu.'}</p>
     <p>Ostatnia aktywność: {formatujDate(projekt.ostatniaAktywnosc)}</p>
     <small>Utworzono: {formatujDate(projekt.utworzono)} · Zaktualizowano: {formatujDate(projekt.zaktualizowano)}</small>
-    <section aria-labelledby="pamiec-projektu">
-      <h2 id="pamiec-projektu">Pamięć projektu</h2>
-      <h3>Podsumowanie aktualnego stanu</h3><p className="surowy-wpis">{projekt.podsumowanieAktualnegoStanu || 'Nie uzupełniono.'}</p>
-      <h3>Ostatnio pracowano nad</h3><p className="surowy-wpis">{projekt.ostatnioPracowanoNad || 'Nie uzupełniono.'}</p>
+    <section className="punkt-powrotu" aria-labelledby="pamiec-projektu">
+      <h2 id="pamiec-projektu">Gdzie skończyłem?</h2>
+      <h3>Ostatnio robiłem</h3><p className="surowy-wpis">{projekt.ostatnioPracowanoNad || 'Nie uzupełniono.'}</p>
+      <h3>Aktualny stan</h3><p className="surowy-wpis">{projekt.podsumowanieAktualnegoStanu || 'Nie uzupełniono.'}</p>
       <h3>Następny krok</h3><p className="surowy-wpis">{projekt.nastepnyKrok || 'Nie uzupełniono.'}</p>
+      <h3>Ostatnia aktywność</h3><p>{formatujDate(projekt.ostatniaAktywnosc)}</p>
+      {!projekt.zarchiwizowano && !edycja && !edycjaPunktu && <button disabled={archiwizowanie} onClick={() => ustawEdycjePunktu(true)}>Aktualizuj punkt powrotu</button>}
+      {edycjaPunktu && <FormularzPunktuPowrotu poczatkoweDane={projekt} anuluj={() => ustawEdycjePunktu(false)} zapiszDane={async (dane) => {
+        await zmienProjekt(projekt.id, { rodzaj: 'punktPowrotu', dane });
+        ustawEdycjePunktu(false);
+      }} />}
     </section>
-    {!projekt.zarchiwizowano && <>
+    {!projekt.zarchiwizowano && !edycjaPunktu && <>
       <button onClick={() => ustawEdycje(!edycja)} disabled={archiwizowanie}>{edycja ? 'Zamknij edycję' : 'Edytuj projekt'}</button>
       {edycja && <FormularzProjektu key={projekt.id} poczatkoweDane={projekt} etykietaPrzycisku="Zapisz zmiany" zapiszDane={async (dane) => {
         await zmienProjekt(projekt.id, { rodzaj: 'edycja', dane });

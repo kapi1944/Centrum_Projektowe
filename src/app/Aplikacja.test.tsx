@@ -18,15 +18,15 @@ describe('Shell aplikacji', () => {
     await screen.findByRole('heading', { name: 'Mój projekt' });
     await osoba.click(screen.getByRole('link', { name: 'Inbox' }));
     const oryginal = '  Pomysł\nDruga linia  ';
-    await osoba.type(screen.getByLabelText('Treść wpisu'), oryginal);
+    await osoba.type(screen.getByLabelText('Co chcesz zapisać?'), oryginal);
     await osoba.selectOptions(screen.getByLabelText('Projekt'), screen.getByRole('option', { name: 'Mój projekt' }));
-    await osoba.click(screen.getByRole('button', { name: 'Zapisz wpis' }));
+    await osoba.click(screen.getByRole('button', { name: 'Zapisz' }));
     await screen.findByText('Oryginalny wpis zapisany lokalnie.');
     widok.unmount();
     render(<MemoryRouter initialEntries={['/inbox']}><Aplikacja repozytorium={utworzRepozytoriumIndexedDb(nazwaBazy)} /></MemoryRouter>);
     const zapisany = await screen.findByText('Pomysł Druga linia');
     expect(zapisany.textContent).toBe(oryginal);
-    expect(screen.getByText(/Mój projekt ·/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mój projekt' })).toBeInTheDocument();
   });
 
   it('pokazuje błąd odczytu zamiast pozorować pustą bazę', async () => {
@@ -35,6 +35,7 @@ describe('Shell aplikacji', () => {
       pobierzWpisy: vi.fn().mockResolvedValue([]),
       dodajProjekt: vi.fn(), dodajWpis: vi.fn(),
       zmienProjekt: vi.fn(), pobierzZdarzenia: vi.fn().mockResolvedValue([]),
+      wykonajAkcjeWpisu: vi.fn(),
     };
     render(<MemoryRouter><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);
     expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się odczytać');
@@ -47,12 +48,13 @@ describe('Shell aplikacji', () => {
       pobierzProjekty: vi.fn().mockResolvedValue([]), pobierzWpisy: vi.fn().mockResolvedValue([]),
       dodajProjekt: vi.fn(), dodajWpis: vi.fn().mockRejectedValue(new Error('Brak miejsca')),
       zmienProjekt: vi.fn(), pobierzZdarzenia: vi.fn().mockResolvedValue([]),
+      wykonajAkcjeWpisu: vi.fn(),
     };
     render(<MemoryRouter initialEntries={['/inbox']}><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);
-    await osoba.type(await screen.findByLabelText('Treść wpisu'), 'Nie zgub tej myśli');
-    await osoba.click(screen.getByRole('button', { name: 'Zapisz wpis' }));
+    await osoba.type(await screen.findByLabelText('Co chcesz zapisać?'), 'Nie zgub tej myśli');
+    await osoba.click(screen.getByRole('button', { name: 'Zapisz' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Treść pozostaje');
-    expect(screen.getByLabelText('Treść wpisu')).toHaveValue('Nie zgub tej myśli');
+    expect(screen.getByLabelText('Co chcesz zapisać?')).toHaveValue('Nie zgub tej myśli');
     expect(screen.queryByText('Oryginalny wpis zapisany lokalnie.')).not.toBeInTheDocument();
   });
 

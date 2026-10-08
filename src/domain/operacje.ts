@@ -1,4 +1,5 @@
 import { statusyProjektu, type DaneProjektu, type KontekstZapisu, type Projekt, type Wpis, type ZmianaProjektu, type WynikZmianyProjektu, type ZrodloDanych, type ZdarzenieAktywnosci } from './modele';
+import type { AkcjaWpisu, WynikZmianyWpisu } from './modele';
 
 export function sprawdzDaneProjektu(dane: DaneProjektu): DaneProjektu {
   if (!dane.nazwa.trim()) throw new Error('Podaj nazwę projektu.');
@@ -34,6 +35,10 @@ export function zmienProjekt(projekt: Projekt, zmiana: ZmianaProjektu, kontekst:
   if (projekt.zarchiwizowano) throw new Error('Projekt jest zarchiwizowany.');
   const nowy = zmiana.rodzaj === 'edycja'
     ? { ...projekt, ...sprawdzDaneProjektu(zmiana.dane) }
+    : zmiana.rodzaj === 'punktPowrotu' ? {
+      ...projekt, ostatnioPracowanoNad: zmiana.dane.ostatnioPracowanoNad,
+      podsumowanieAktualnegoStanu: zmiana.dane.podsumowanieAktualnegoStanu, nastepnyKrok: zmiana.dane.nastepnyKrok,
+    }
     : { ...projekt, zarchiwizowano: kontekst.czas };
   nowy.zaktualizowano = kontekst.czas;
   nowy.ostatniaAktywnosc = kontekst.czas > projekt.ostatniaAktywnosc ? kontekst.czas : projekt.ostatniaAktywnosc;
@@ -53,12 +58,56 @@ export function zmienProjekt(projekt: Projekt, zmiana: ZmianaProjektu, kontekst:
     projekt: nowy,
     zdarzenie: {
       id: kontekst.idZdarzenia, projektId: projekt.id, typEncji: 'PROJECT', encjaId: projekt.id,
-      typZdarzenia: zmiana.rodzaj === 'edycja' ? 'PROJECT_UPDATED' : 'PROJECT_ARCHIVED',
-      tytul: zmiana.rodzaj === 'edycja' ? 'Zmieniono projekt' : 'Zarchiwizowano projekt',
+      typZdarzenia: zmiana.rodzaj === 'punktPowrotu' ? 'PROJECT_RESUME_UPDATED' : zmiana.rodzaj === 'edycja' ? 'PROJECT_UPDATED' : 'PROJECT_ARCHIVED',
+      tytul: zmiana.rodzaj === 'punktPowrotu' ? 'Aktualizowano punkt powrotu' : zmiana.rodzaj === 'edycja' ? 'Zmieniono projekt' : 'Zarchiwizowano projekt',
       opis: zmiany.map(({ pole, poprzednio, obecnie }) => `${etykietyPol[pole]}: ${opiszWartosc(pole, poprzednio)} → ${opiszWartosc(pole, obecnie)}`).join('\n'),
       utworzono: kontekst.czas, zrodlo: kontekst.zrodlo, metadane: { zmiany },
     },
   };
+}
+
+export function przygotujAkcjeWpisu(wpis: Wpis, akcja: AkcjaWpisu, kontekst: KontekstZapisu): WynikZmianyWpisu {
+  if (wpis.status !== 'UNPROCESSED') throw new Error('Ta akcja wymaga nieprzetworzonego wpisu.');
+  let projekt: Projekt | null = null;
+  let nowy = { ...wpis };
+  let typZdarzenia: ZdarzenieAktywnosci['typZdarzenia'];
+  let tytul: string;
+  const zdarzenia: ZdarzenieAktywnosci[] = [];
+
+  switch (akcja.rodzaj) {
+    case 'nowyProjekt':
+    case 'przypisanie': {
+      if (wpis.projektId !== null) throw new Error('Wpis jest już przypisany do projektu.');
+      if (akcja.rodzaj === 'nowyProjekt') {
+        projekt = { ...utworzProjekt(akcja.nazwa, akcja.idProjektu, kontekst.czas, kontekst.zrodlo), opis: akcja.opis };
+        const utworzenie = zdarzenieUtworzenia(projekt, { ...kontekst, idZdarzenia: akcja.idZdarzeniaProjektu });
+        zdarzenia.push({ ...utworzenie, metadane: { wpisZrodlowyId: wpis.id } });
+      }
+      const projektId = akcja.rodzaj === 'przypisanie' ? akcja.projektId : akcja.idProjektu;
+      if (!projektId) throw new Error('Wybierz projekt.');
+      nowy = { ...wpis, projektId };
+      typZdarzenia = 'CAPTURE_ASSIGNED';
+      tytul = 'Dołączono wpis do projektu';
+      break;
+    }
+    case 'odlozenie':
+      if (wpis.odlozonoDoAnalizy) throw new Error('Wpis jest już odłożony do analizy.');
+      nowy = { ...wpis, odlozonoDoAnalizy: kontekst.czas };
+      typZdarzenia = 'CAPTURE_DEFERRED';
+      tytul = 'Odłożono wpis do późniejszej analizy';
+      break;
+    case 'odrzucenie':
+      nowy = { ...wpis, status: 'DISMISSED', odlozonoDoAnalizy: null };
+      typZdarzenia = 'CAPTURE_DISMISSED';
+      tytul = 'Odrzucono wpis bez usuwania oryginału';
+      break;
+  }
+  zdarzenia.push({
+    id: kontekst.idZdarzenia, projektId: nowy.projektId, typEncji: 'CAPTURE', encjaId: wpis.id,
+    typZdarzenia, tytul, utworzono: kontekst.czas, zrodlo: kontekst.zrodlo,
+    metadane: { poprzedniStatus: wpis.status, status: nowy.status, poprzedniProjektId: wpis.projektId, projektId: nowy.projektId },
+  });
+  return { wpis: nowy, projekt, zdarzenia };
 }
 
 export function zdarzenieUtworzenia(rekord: Projekt | Wpis, kontekst: KontekstZapisu): ZdarzenieAktywnosci {

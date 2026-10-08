@@ -1,20 +1,28 @@
-import { useState, type FormEvent } from 'react';
-import type { Projekt, Wpis } from '../domain/modele';
+import { useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { etykietyStatusowWpisu, type AkcjaWpisu, type Projekt, type Wpis } from '../domain/modele';
+import { AkcjeWpisu } from '../features/inbox/AkcjeWpisu';
 import { formatujDate } from '../shared/formatujDate';
 
-export function Inbox({ projekty, wpisy, dodajWpis }: {
+export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu }: {
   projekty: Projekt[];
   wpisy: Wpis[];
   dodajWpis: (tresc: string, projektId: string | null) => Promise<void>;
+  wykonajAkcjeWpisu: (id: string, akcja: AkcjaWpisu) => Promise<void>;
 }) {
   const [tresc, ustawTresc] = useState('');
   const [projektId, ustawProjektId] = useState('');
   const [zapisywanie, ustawZapisywanie] = useState(false);
   const [blad, ustawBlad] = useState('');
   const [komunikat, ustawKomunikat] = useState('');
+  const [pokazOdrzucone, ustawPokazOdrzucone] = useState(false);
+  const poleWpisu = useRef<HTMLTextAreaElement>(null);
+  const blokadaZapisu = useRef(false);
 
   async function zapisz(zdarzenie: FormEvent<HTMLFormElement>) {
     zdarzenie.preventDefault();
+    if (blokadaZapisu.current || !tresc.trim()) return;
+    blokadaZapisu.current = true;
     ustawBlad('');
     ustawKomunikat('');
     ustawZapisywanie(true);
@@ -24,28 +32,40 @@ export function Inbox({ projekty, wpisy, dodajWpis }: {
       ustawKomunikat('Oryginalny wpis zapisany lokalnie.');
     } catch {
       ustawBlad('Nie udało się zapisać wpisu. Treść pozostaje w formularzu. Spróbuj ponownie.');
-    } finally { ustawZapisywanie(false); }
+    } finally {
+      blokadaZapisu.current = false;
+      ustawZapisywanie(false);
+      requestAnimationFrame(() => poleWpisu.current?.focus());
+    }
   }
 
   return <>
     <h1>Inbox</h1>
     <p>Zachowaj surową myśl. Oryginał zostanie zapisany bez zmian.</p>
     <form onSubmit={zapisz}>
-      <label htmlFor="tresc-wpisu">Treść wpisu</label>
-      <textarea id="tresc-wpisu" rows={6} value={tresc} onChange={(zdarzenie) => ustawTresc(zdarzenie.target.value)} required disabled={zapisywanie} />
+      <label htmlFor="tresc-wpisu">Co chcesz zapisać?</label>
+      <textarea ref={poleWpisu} id="tresc-wpisu" rows={7} value={tresc} onChange={(zdarzenie) => ustawTresc(zdarzenie.target.value)} required disabled={zapisywanie} aria-describedby="skrot-zapisu" onKeyDown={(zdarzenie) => {
+        if ((zdarzenie.ctrlKey || zdarzenie.metaKey) && zdarzenie.key === 'Enter') {
+          zdarzenie.preventDefault();
+          if (!zdarzenie.repeat && !zdarzenie.nativeEvent.isComposing && !blokadaZapisu.current) zdarzenie.currentTarget.form?.requestSubmit();
+        }
+      }} />
+      <small id="skrot-zapisu">Ctrl+Enter (na Macu ⌘+Enter) zapisuje. Enter dodaje nową linię.</small>
       <label htmlFor="projekt-wpisu">Projekt</label>
       <select id="projekt-wpisu" value={projektId} onChange={(zdarzenie) => ustawProjektId(zdarzenie.target.value)} disabled={zapisywanie}>
         <option value="">Bez przypisania</option>
         {projekty.filter((projekt) => !projekt.zarchiwizowano).map((projekt) => <option key={projekt.id} value={projekt.id}>{projekt.nazwa}</option>)}
       </select>
-      <button disabled={zapisywanie || !tresc.trim()}>{zapisywanie ? 'Zapisywanie…' : 'Zapisz wpis'}</button>
+      <button disabled={zapisywanie || !tresc.trim()}>{zapisywanie ? 'Zapisywanie…' : 'Zapisz'}</button>
       {blad && <p role="alert">{blad}</p>}
       <p role="status">{komunikat}</p>
     </form>
     <h2>Zapisane wpisy</h2>
-    {wpisy.length === 0 ? <p>Inbox jest pusty.</p> : <ul className="lista-rekordow">{[...wpisy].sort((lewy, prawy) => prawy.utworzono.localeCompare(lewy.utworzono)).map((wpis) => <li key={wpis.id}>
+    <label><input type="checkbox" checked={pokazOdrzucone} onChange={(zdarzenie) => ustawPokazOdrzucone(zdarzenie.target.checked)} /> Pokaż odrzucone</label>
+    {wpisy.filter((wpis) => pokazOdrzucone || wpis.status !== 'DISMISSED').length === 0 ? <p>Brak wpisów w tym widoku.</p> : <ul className="lista-rekordow">{[...wpisy].filter((wpis) => pokazOdrzucone || wpis.status !== 'DISMISSED').sort((lewy, prawy) => prawy.utworzono.localeCompare(lewy.utworzono)).map((wpis) => <li key={wpis.id}>
       <p className="surowy-wpis">{wpis.trescOryginalna}</p>
-      <small>{wpis.projektId ? projekty.find((projekt) => projekt.id === wpis.projektId)?.nazwa ?? 'Nieznany projekt' : 'Bez przypisania'} · {formatujDate(wpis.utworzono)} · Nowy</small>
+      <small>{wpis.projektId ? <Link to={`/projekty/${wpis.projektId}`}>{projekty.find((projekt) => projekt.id === wpis.projektId)?.nazwa ?? 'Nieznany projekt'}</Link> : 'Bez przypisania'} · {formatujDate(wpis.utworzono)} · {etykietyStatusowWpisu[wpis.status]}{wpis.odlozonoDoAnalizy ? ' · Do analizy później' : ''}</small>
+      <AkcjeWpisu wpis={wpis} projekty={projekty} wykonajAkcje={wykonajAkcjeWpisu} />
     </li>)}</ul>}
   </>;
 }

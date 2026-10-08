@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { DaneProjektu, KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci, ZmianaProjektu } from '../../domain/modele';
+import type { AkcjaWpisu } from '../../domain/modele';
 import { sprawdzDaneProjektu, utworzProjekt, utworzWpis } from '../../domain/operacje';
 import type { RepozytoriumProjektowe } from '../../domain/repozytorium';
 
@@ -56,5 +57,14 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe) {
       ? { ...projekt, ostatniaAktywnosc: kontekst.czas > projekt.ostatniaAktywnosc ? kontekst.czas : projekt.ostatniaAktywnosc } : projekt));
   }
 
-  return { projekty, wpisy, zdarzenia, stan, blad, dodajProjekt, zmienProjekt, dodajWpis };
+  async function wykonajAkcjeWpisu(id: string, akcja: AkcjaWpisu) {
+    const wynik = await repozytorium.wykonajAkcjeWpisu(id, akcja, utworzKontekst());
+    ustawWpisy((poprzednie) => poprzednie.map((wpis) => wpis.id === id ? wynik.wpis : wpis));
+    ustawZdarzenia((poprzednie) => [...poprzednie, ...wynik.zdarzenia]);
+    const projekt = wynik.projekt;
+    if (projekt) ustawProjekty((poprzednie) => poprzednie.some((poprzedni) => poprzedni.id === projekt.id)
+      ? poprzednie.map((poprzedni) => poprzedni.id === projekt.id ? projekt : poprzedni) : [...poprzednie, projekt]);
+  }
+
+  return { projekty, wpisy, zdarzenia, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu };
 }

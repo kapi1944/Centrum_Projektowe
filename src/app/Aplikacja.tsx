@@ -26,7 +26,7 @@ export function Aplikacja({ repozytorium }: { repozytorium: RepozytoriumProjekto
         <Route path="/" element={<Start projekty={rejestr.projekty} wpisy={rejestr.wpisy} />} />
         <Route path="/projekty" element={<Projekty projekty={rejestr.projekty} dodajProjekt={rejestr.dodajProjekt} />} />
         <Route path="/projekty/:projektId" element={<Projekt key={lokalizacja.pathname} projekty={rejestr.projekty} zdarzenia={rejestr.zdarzenia} zmienProjekt={rejestr.zmienProjekt} />} />
-        <Route path="/inbox" element={<Inbox projekty={rejestr.projekty} wpisy={rejestr.wpisy} dodajWpis={rejestr.dodajWpis} />} />
+        <Route path="/inbox" element={<Inbox projekty={rejestr.projekty} wpisy={rejestr.wpisy} dodajWpis={rejestr.dodajWpis} wykonajAkcjeWpisu={rejestr.wykonajAkcjeWpisu} />} />
         <Route path="*" element={<><h1>Nie znaleziono strony</h1><NavLink to="/">Wróć na start</NavLink></>} />
       </Routes>}
     </main>

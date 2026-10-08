@@ -1,5 +1,5 @@
 import type { KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci } from '../domain/modele';
-import { utworzProjekt, utworzWpis, zdarzenieUtworzenia, zmienProjekt } from '../domain/operacje';
+import { przygotujAkcjeWpisu, utworzProjekt, utworzWpis, zdarzenieUtworzenia, zmienProjekt } from '../domain/operacje';
 import type { RepozytoriumProjektowe } from '../domain/repozytorium';
 
 export function utworzRepozytoriumIndexedDb(
@@ -81,6 +81,7 @@ export function utworzRepozytoriumIndexedDb(
     transakcja: IDBTransaction,
     zakoncz: (wynik: T) => void,
     odczytajProjekt: (id: string, obsluz: (projekt: Projekt) => void) => void,
+    przerwij: (blad: unknown) => void,
   ) => void): Promise<T> {
     const baza = await otworzBaze();
     try {
@@ -90,6 +91,10 @@ export function utworzRepozytoriumIndexedDb(
         let bladOperacji: unknown;
         transakcja.oncomplete = () => rozwiaz(wynik);
         transakcja.onabort = () => odrzuc(bladOperacji ?? transakcja.error ?? new Error('Zapis przerwany.'));
+        function przerwij(blad: unknown) {
+          bladOperacji = blad;
+          transakcja.abort();
+        }
         function odczytajProjekt(id: string, obsluz: (projekt: Projekt) => void) {
           const zadanie = transakcja.objectStore('projekty').get(id);
           zadanie.onsuccess = () => {
@@ -97,13 +102,12 @@ export function utworzRepozytoriumIndexedDb(
               if (!zadanie.result) throw new Error('Projekt nie istnieje.');
               obsluz(zadanie.result as Projekt);
             } catch (blad) {
-              bladOperacji = blad;
-              transakcja.abort();
+              przerwij(blad);
             }
           };
         }
         try {
-          wykonaj(transakcja, (wartosc) => { wynik = wartosc; }, odczytajProjekt);
+          wykonaj(transakcja, (wartosc) => { wynik = wartosc; }, odczytajProjekt, przerwij);
         } catch (blad) {
           bladOperacji = blad;
           transakcja.abort();
@@ -148,5 +152,30 @@ export function utworzRepozytoriumIndexedDb(
       });
     }),
     pobierzZdarzenia: () => pobierzWszystkie<ZdarzenieAktywnosci>('zdarzenia'),
+    wykonajAkcjeWpisu: (id, akcja, kontekst) => zapisz((transakcja, zakoncz, odczytajProjekt, przerwij) => {
+      const zadanie = transakcja.objectStore('wpisy').get(id);
+      zadanie.onsuccess = () => {
+        try {
+          if (!zadanie.result) throw new Error('Wpis nie istnieje.');
+          const wynik = przygotujAkcjeWpisu(zadanie.result as Wpis, akcja, kontekst);
+          function zapiszWynik() {
+            transakcja.objectStore('wpisy').put(wynik.wpis);
+            for (const zdarzenie of wynik.zdarzenia) transakcja.objectStore('zdarzenia').add(zdarzenie);
+            zakoncz(wynik);
+          }
+          if (wynik.projekt) {
+            transakcja.objectStore('projekty').add(wynik.projekt);
+            zapiszWynik();
+          } else if (wynik.wpis.projektId !== null) {
+            odczytajProjekt(wynik.wpis.projektId, (projekt) => {
+              if (akcja.rodzaj === 'przypisanie' && projekt.zarchiwizowano) throw new Error('Projekt jest zarchiwizowany.');
+              wynik.projekt = { ...projekt, ostatniaAktywnosc: kontekst.czas > projekt.ostatniaAktywnosc ? kontekst.czas : projekt.ostatniaAktywnosc };
+              transakcja.objectStore('projekty').put(wynik.projekt);
+              zapiszWynik();
+            });
+          } else zapiszWynik();
+        } catch (blad) { przerwij(blad); }
+      };
+    }),
   };
 }
