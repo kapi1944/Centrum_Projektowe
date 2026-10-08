@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
-import type { Projekt, Wpis } from '../../domain/modele';
-import { utworzProjekt, utworzWpis } from '../../domain/operacje';
+import type { DaneProjektu, KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci, ZmianaProjektu } from '../../domain/modele';
+import { sprawdzDaneProjektu, utworzProjekt, utworzWpis } from '../../domain/operacje';
 import type { RepozytoriumProjektowe } from '../../domain/repozytorium';
 
 export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe) {
   const [projekty, ustawProjekty] = useState<Projekt[]>([]);
   const [wpisy, ustawWpisy] = useState<Wpis[]>([]);
+  const [zdarzenia, ustawZdarzenia] = useState<ZdarzenieAktywnosci[]>([]);
   const [stan, ustawStan] = useState<'ladowanie' | 'gotowy' | 'blad'>('ladowanie');
   const [blad, ustawBlad] = useState('');
 
   useEffect(() => {
     let aktywny = true;
-    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy()])
-      .then(([odczytaneProjekty, odczytaneWpisy]) => {
+    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia()])
+      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia]) => {
         if (!aktywny) return;
         ustawProjekty(odczytaneProjekty);
         ustawWpisy(odczytaneWpisy);
+        ustawZdarzenia(odczytaneZdarzenia);
         ustawStan('gotowy');
       })
       .catch(() => {
@@ -26,17 +28,33 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe) {
     return () => { aktywny = false; };
   }, [repozytorium]);
 
-  async function dodajProjekt(nazwa: string) {
-    const projekt = utworzProjekt(nazwa, crypto.randomUUID(), new Date().toISOString());
-    await repozytorium.dodajProjekt(projekt);
+  function utworzKontekst(): KontekstZapisu {
+    return { idZdarzenia: crypto.randomUUID(), czas: new Date().toISOString(), zrodlo: { typ: 'USER', nazwa: 'Wpis ręczny' } };
+  }
+
+  async function dodajProjekt(dane: DaneProjektu) {
+    const kontekst = utworzKontekst();
+    const projekt = { ...utworzProjekt(dane.nazwa, crypto.randomUUID(), kontekst.czas, kontekst.zrodlo), ...sprawdzDaneProjektu(dane) };
+    const zdarzenie = await repozytorium.dodajProjekt(projekt, kontekst);
     ustawProjekty((poprzednie) => [...poprzednie, projekt]);
+    ustawZdarzenia((poprzednie) => [...poprzednie, zdarzenie]);
+  }
+
+  async function zmienProjekt(id: string, zmiana: ZmianaProjektu) {
+    const wynik = await repozytorium.zmienProjekt(id, zmiana, utworzKontekst());
+    ustawProjekty((poprzednie) => poprzednie.map((projekt) => projekt.id === id ? wynik.projekt : projekt));
+    ustawZdarzenia((poprzednie) => [...poprzednie, wynik.zdarzenie]);
   }
 
   async function dodajWpis(tresc: string, projektId: string | null) {
-    const wpis = utworzWpis(tresc, projektId, crypto.randomUUID(), new Date().toISOString());
-    await repozytorium.dodajWpis(wpis);
+    const kontekst = utworzKontekst();
+    const wpis = utworzWpis(tresc, projektId, crypto.randomUUID(), kontekst.czas, kontekst.zrodlo);
+    const zdarzenie = await repozytorium.dodajWpis(wpis, kontekst);
     ustawWpisy((poprzednie) => [...poprzednie, wpis]);
+    ustawZdarzenia((poprzednie) => [...poprzednie, zdarzenie]);
+    ustawProjekty((poprzednie) => poprzednie.map((projekt) => projekt.id === projektId
+      ? { ...projekt, ostatniaAktywnosc: kontekst.czas > projekt.ostatniaAktywnosc ? kontekst.czas : projekt.ostatniaAktywnosc } : projekt));
   }
 
-  return { projekty, wpisy, stan, blad, dodajProjekt, dodajWpis };
+  return { projekty, wpisy, zdarzenia, stan, blad, dodajProjekt, zmienProjekt, dodajWpis };
 }

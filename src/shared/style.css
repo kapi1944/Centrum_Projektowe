@@ -11,6 +11,7 @@ h1, h2, p, li { overflow-wrap: anywhere; }
 h2 { font-size: 1.2rem; }
 section, form, .lista-rekordow li { background: white; border: 1px solid #d4dae2; border-radius: .4rem; padding: 1rem; margin: 1rem 0; }
 form { display: grid; gap: .6rem; }
+fieldset { display: grid; gap: .6rem; min-width: 0; border: 0; padding: 0; }
 input, textarea, select, button { font: inherit; padding: .65rem; border: 1px solid #78869a; border-radius: .25rem; max-width: 100%; min-width: 0; }
 textarea { resize: vertical; }
 button { background: #194d9a; color: white; cursor: pointer; justify-self: start; }

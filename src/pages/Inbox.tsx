@@ -36,7 +36,7 @@ export function Inbox({ projekty, wpisy, dodajWpis }: {
       <label htmlFor="projekt-wpisu">Projekt</label>
       <select id="projekt-wpisu" value={projektId} onChange={(zdarzenie) => ustawProjektId(zdarzenie.target.value)} disabled={zapisywanie}>
         <option value="">Bez przypisania</option>
-        {projekty.map((projekt) => <option key={projekt.id} value={projekt.id}>{projekt.nazwa}</option>)}
+        {projekty.filter((projekt) => !projekt.zarchiwizowano).map((projekt) => <option key={projekt.id} value={projekt.id}>{projekt.nazwa}</option>)}
       </select>
       <button disabled={zapisywanie || !tresc.trim()}>{zapisywanie ? 'Zapisywanie…' : 'Zapisz wpis'}</button>
       {blad && <p role="alert">{blad}</p>}
