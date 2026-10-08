@@ -5,13 +5,14 @@ Etap 3 pierwotnie pominięto. Etap **3R** dołącza `CaptureAnalysis` do już is
 | Etap | Zakres | Stan |
 | --- | --- | --- |
 | 0. Fundament | React/TS/Vite, obsługa tras, kontrakt repozytorium, zapis projektów i oryginałów | Zaimplementowany |
-| 1. Pamięć projektu | Rozwinięty `Project`, statusy, archiwizacja, `ActivityEvent`, atomowy trwały zapis i migracje | Zaimplementowany; eksport/import i kopie zapasowe pozostają poza zakresem |
+| 1. Pamięć projektu | Rozwinięty `Project`, statusy, archiwizacja, `ActivityEvent`, atomowy trwały zapis i migracje | Zaimplementowany; kopie dodano w Etapie 6 |
 | 2. Skrzynka + „Gdzie skończyłem?” | Zapis i przypisywanie `Capture`, projekt z wpisu, ręczny punkt powrotu | Zaimplementowany |
 | 3R. Analiza wpisów | Osobna analiza, AnalysisProvider, reguły lokalne, weryfikacja i zastosowanie do istniejących `Decision` / `ImpactAnalysis` | Zaimplementowany; oryginał niezmienny, zatwierdzanie jawne, audyt i wycofanie transakcji |
 | 4. Decyzje, zastępowanie i analiza wpływu | Decyzje, źródła, wersje, zastępowanie, relacyjny wpływ i osobne zatwierdzanie propozycji | Istniejąca implementacja zachowana i połączona z 3R |
 | 4.5. Spójność interfejsu | Polskie etykiety, weryfikacja tekstów, szczegóły techniczne i rozdzielenie statusów od filtrów | Zaimplementowany; bez zmiany schematu i tras |
 | 5. Wykonanie | Obszary, etapy, siedem typów pracy, pytania i blokady | Zaimplementowany; relacje z decyzjami, jawna konwersja starszych analiz, migracja v5 i historia |
-| 6. Dokumentacja / repozytoria / zasoby | Dokumenty, ręczne powiązania z repozytoriami, katalog zasobów | Plan |
+| 6. Kopie zapasowe i odtwarzanie | Wersjonowany JSON, wszystkie 11 magazynów, walidacja, podgląd, konflikty, atomowe łączenie i potwierdzone zastąpienie | Zaimplementowany; IndexedDB bez zmiany wersji |
+| Dokumentacja / repozytoria / zasoby | Dokumenty, ręczne powiązania z repozytoriami, katalog zasobów | Plan; odrębne zadanie |
 | 7. Zdrowie / ekran Start | Ocena zdrowia z dowodów, aktualność kontekstu, blokady, następne kroki | Plan |
 | 8+. Integracje | Opcjonalne źródła zewnętrzne i dostawcy modeli językowych | Wymagają osobnego polecenia; brak API i integracji w 3R |
 

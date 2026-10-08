@@ -1,3 +1,5 @@
+import { nazwyMagazynow, pusteDaneKopii, sprawdzKopie, sprawdzDaneKopii, polaczDane, type DaneKopii } from '../domain/kopieZapasowe';
+import daneAplikacji from '../../package.json';
 import type { KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci } from '../domain/modele';
 import { przygotujAkcjeWpisu, utworzProjekt, utworzWpis, zdarzenieUtworzenia, zmienProjekt } from '../domain/operacje';
 import type { RepozytoriumProjektowe } from '../domain/repozytorium';
@@ -107,7 +109,7 @@ export function utworzRepozytoriumIndexedDb(
     const baza = await otworzBaze();
     try {
       return await new Promise<T>((rozwiaz, odrzuc) => {
-        const transakcja = baza.transaction(['projekty', 'wpisy', 'zdarzenia', 'decyzje', 'analizyWplywu', 'analizyWpisow', 'obszary', 'etapy', 'elementyPracy', 'pytania', 'blokady'], 'readwrite');
+        const transakcja = baza.transaction(nazwyMagazynow, 'readwrite');
         let wynik: T;
         let bladOperacji: unknown;
         transakcja.oncomplete = () => rozwiaz(wynik);
@@ -139,7 +141,60 @@ export function utworzRepozytoriumIndexedDb(
     }
   }
 
+  function odczytajDane(transakcja: IDBTransaction, zakoncz: (dane: DaneKopii) => void) {
+    const dane = pusteDaneKopii();
+    let pozostalo = nazwyMagazynow.length;
+    for (const nazwa of nazwyMagazynow) {
+      const zadanie = transakcja.objectStore(nazwa).getAll();
+      zadanie.onsuccess = () => {
+        dane[nazwa] = zadanie.result;
+        if (--pozostalo === 0) zakoncz(dane);
+      };
+    }
+  }
+
   return {
+    eksportujKopie: async () => {
+      const baza = await otworzBaze();
+      try {
+        return await new Promise((rozwiaz, odrzuc) => {
+          const transakcja = baza.transaction(nazwyMagazynow, 'readonly');
+          let dane: DaneKopii;
+          odczytajDane(transakcja, (odczytane) => { dane = odczytane; });
+          transakcja.onabort = () => odrzuc(new Error('Nie udało się odczytać kopii zapasowej.'));
+          transakcja.oncomplete = () => {
+            try {
+              // Spójny obraz wszystkich magazynów pochodzi z jednej transakcji.
+              sprawdzDaneKopii(dane);
+              rozwiaz({ format: 'centrum-projektowe', schemaVersion: 1, appVersion: daneAplikacji.version, exportedAt: new Date().toISOString(), data: dane });
+            } catch (blad) { odrzuc(blad); }
+          };
+        });
+      } finally { baza.close(); }
+    },
+    importujKopie: async (kopia, tryb, potwierdzonoZastapienie = false) => {
+      // Osobna kopia zapobiega zmianie argumentu podczas oczekiwania na bazę.
+      const przyjeta: unknown = structuredClone(kopia);
+      sprawdzKopie(przyjeta);
+      if (tryb !== 'polacz' && tryb !== 'zastap') throw new Error('Niepoprawny tryb importu.');
+      if (tryb === 'zastap' && !potwierdzonoZastapienie) throw new Error('Potwierdź zastąpienie obecnych danych.');
+      await zapisz<void>((transakcja, zakoncz, _odczytajProjekt, przerwij) => {
+        odczytajDane(transakcja, (obecne) => {
+          try {
+            const dane = tryb === 'polacz' ? polaczDane(obecne, przyjeta.data) : przyjeta.data;
+            for (const nazwa of nazwyMagazynow) {
+              const magazyn = transakcja.objectStore(nazwa);
+              if (tryb === 'zastap') magazyn.clear();
+              const obecneId = new Set(obecne[nazwa].map((rekord) => rekord.id));
+              for (const rekord of dane[nazwa]) {
+                if (tryb === 'zastap' || !obecneId.has(rekord.id)) magazyn.add(rekord);
+              }
+            }
+            zakoncz();
+          } catch (blad) { przerwij(blad); }
+        });
+      });
+    },
     pobierzRealizacje: async () => {
       const baza = await otworzBaze();
       try {

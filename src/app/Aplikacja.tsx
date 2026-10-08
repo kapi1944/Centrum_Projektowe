@@ -1,3 +1,4 @@
+import { KopieZapasowe } from '../pages/KopieZapasowe';
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import type { RepozytoriumProjektowe } from '../domain/repozytorium';
 import { useRejestrProjektowy } from '../features/rejestr/useRejestrProjektowy';
@@ -17,7 +18,7 @@ export function Aplikacja({ repozytorium }: { repozytorium: RepozytoriumProjekto
       <nav aria-label="Główna nawigacja">
         <NavLink to="/" end>Start</NavLink>
         <NavLink to="/projekty">Projekty</NavLink>
-        <NavLink to="/inbox">Skrzynka</NavLink>
+        <NavLink to="/inbox">Skrzynka</NavLink><NavLink to="/dane">Dane i kopie zapasowe</NavLink>
       </nav>
     </header>
     <main id="tresc" tabIndex={-1}>
@@ -29,9 +30,10 @@ export function Aplikacja({ repozytorium }: { repozytorium: RepozytoriumProjekto
         <Route path="/projekty/:projektId" element={<Projekt key={lokalizacja.pathname} projekty={rejestr.projekty} zdarzenia={rejestr.zdarzenia} zmienProjekt={rejestr.zmienProjekt} realizacja={rejestr.realizacja} decyzje={rejestr.decyzje} wykonajRealizacje={rejestr.wykonajRealizacje} />} />
         <Route path="/projekty/:projektId/ustalenia" element={<Ustalenia key={lokalizacja.pathname} projekty={rejestr.projekty} wpisy={rejestr.wpisy} decyzje={rejestr.decyzje} analizy={rejestr.analizy} wykonaj={rejestr.wykonajUstalenie} elementyPracy={rejestr.realizacja.elementyPracy} />} />
         <Route path="/inbox" element={<Inbox projekty={rejestr.projekty} wpisy={rejestr.wpisy} dodajWpis={rejestr.dodajWpis} wykonajAkcjeWpisu={rejestr.wykonajAkcjeWpisu} analizy={rejestr.analizy} wykonajUstalenie={rejestr.wykonajUstalenie} analizyWpisow={rejestr.analizyWpisow} analizujWpis={rejestr.analizujWpis} wykonajAnalizeWpisu={rejestr.wykonajAnalizeWpisu} realizacja={rejestr.realizacja} wykonajRealizacje={rejestr.wykonajRealizacje} />} />
+        <Route path="/dane" element={<KopieZapasowe repozytorium={repozytorium} odswiez={rejestr.odswiez} />} />
         <Route path="*" element={<><h1>Nie znaleziono strony</h1><NavLink to="/">Wróć na start</NavLink></>} />
       </Routes>}
     </main>
-    <footer>Dane są przechowywane w tej przeglądarce. Usunięcie danych witryny usuwa także zapisane projekty, wpisy i historię. Aplikacja nie ma kopii zapasowej ani synchronizacji.</footer>
+    <footer>Dane są przechowywane w tej przeglądarce. Usunięcie danych witryny usuwa także zapisane projekty, wpisy i historię. Możesz wykonać kopię zapasową na ekranie „Dane i kopie zapasowe”. Synchronizacja nie jest dostępna.</footer>
   </>;
 }

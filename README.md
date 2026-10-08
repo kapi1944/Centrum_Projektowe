@@ -23,7 +23,7 @@ npm run preview
 
 React + TypeScript + Vite + React Router. Vitest, Testing Library i fake-indexeddb sprawdzają domenę, trwały zapis oraz podstawowy przepływ UI. `build` tworzy katalog `dist`. Hosting statyczny musi przekierowywać ścieżki aplikacji (np. `/inbox`) do `index.html`.
 
-## Aktualny zakres (Etapy 0–5, w tym 3R)
+## Aktualny zakres (Etapy 0–6, w tym 3R)
 
 - Układ aplikacji: Start, Projekty, Skrzynka oraz obsługa nieznanej trasy.
 - Tworzenie, edycja i archiwizacja projektów, ekran Start oraz ręczny punkt powrotu „Gdzie skończyłem?”.
@@ -66,7 +66,7 @@ W zastosowanych analizach także starsze, zachowane działania i pytania można 
 
 ## Dane lokalne i granice prywatności
 
-Dane są przypisane do przeglądarki, profilu i originu (protokół, host, port). Nie są wysyłane do serwera. Usunięcie danych witryny, utrata profilu albo tryb prywatny mogą spowodować utratę zapisów. Ta wersja nie zapewnia eksportu, kopii zapasowych, szyfrowania ani uwierzytelnienia. „Prywatna” oznacza przeznaczenie aplikacji, a nie kontrolę dostępu na współdzielonym urządzeniu.
+Dane są przypisane do przeglądarki, profilu i originu (protokół, host, port). Nie są wysyłane do serwera. Usunięcie danych witryny, utrata profilu albo tryb prywatny mogą spowodować utratę zapisów. Kopie JSON są dostępne na ekranie „Dane i kopie zapasowe”. Ta wersja nie zapewnia szyfrowania ani uwierzytelnienia. „Prywatna” oznacza przeznaczenie aplikacji, a nie kontrolę dostępu na współdzielonym urządzeniu.
 
 Zmiany z innej otwartej karty będą widoczne po odświeżeniu; synchronizacja kart nie jest zaimplementowana. Dane pozostają dostępne po ponownym uruchomieniu aplikacji na tym samym originie. Nie ma jeszcze service workera ani obsługi uruchamiania aplikacji offline.
 
@@ -77,3 +77,16 @@ Zmiany z innej otwartej karty będą widoczne po odświeżeniu; synchronizacja k
 - [Plan rozwoju](docs/ROADMAP.md)
 
 Fundament dodano do istniejącego repozytorium, którego bazą był commit `a2a5bc1c1cd88a86e2e878c8f0d19e234fe108c2`.
+
+
+## Kopie zapasowe i odtwarzanie (Etap 6)
+
+W nawigacji wybierz **Dane i kopie zapasowe** (`/dane`). **Utwórz kopię zapasową** przygotowuje plik JSON do pobrania. Zachowaj go poza profilem przeglądarki, w bezpiecznym miejscu — zawiera prywatne treści w postaci jawnej. Eksport obejmuje także archiwalne projekty, oryginały, historię i wszystkie analizy oraz encje realizacji.
+
+Przy imporcie wybierz plik i **Sprawdź kopię**. Podgląd pokazuje datę, wersję schematu, wersję aplikacji i liczebności magazynów. Sprawdzenie nie zapisuje danych. **Połącz z obecnymi danymi** dodaje nowe ID, pomija identyczne rekordy i zatrzymuje całą operację przy konflikcie. Kolejność pól obiektu nie ma znaczenia dla identyczności; kolejność elementów tablic ma znaczenie. Nie ma automatycznego wyboru nowszej wersji ani rozstrzygania konfliktów pojedynczych rekordów. Można anulować operację lub świadomie zastąpić całą bazę.
+
+**Zastąp obecne dane** wymaga zaznaczenia jednoznacznego potwierdzenia. Usuwa również rekordy nieobecne w kopii; pusta kopia opróżnia bazę. Wykonaj najpierw eksport obecnego stanu. Import jest atomowy: błąd dowolnego zapisu wycofuje także usunięcia. Po sukcesie rejestr aplikacji odczytuje stan ponownie; inne karty trzeba odświeżyć.
+
+Format: `format: "centrum-projektowe"`, `schemaVersion: 1`, `appVersion` z package.json, `exportedAt` jako data ISO, `data` jako obiekt z tablicami wszystkich 11 magazynów. Wersja formatu kopii jest niezależna od IndexedDB v5. Obsługiwany jest wyłącznie schemat kopii 1; nie ma konwersji starszych ani przyszłych formatów. Import nie ufa nazwie pliku, sprawdza strukturę, typy, identyfikatory, unikalność i podstawowe relacje. Ręczne odnośniki do zewnętrznych obiektów pozostają tekstowymi odnośnikami.
+
+Kopie są ręczne, bez synchronizacji, szyfrowania, haseł, harmonogramu, załączników zewnętrznych i ustawień przeglądarki. Walidacja nie potwierdza autorstwa ani prawdziwości treści. Operacja przetwarza całą bazę i plik w pamięci; brak obsługi strumieniowej bardzo dużych kopii. Pobranie pliku nie dowodzi, że użytkownik bezpiecznie go zachował. Testy automatyczne korzystają z jsdom/fake-indexeddb; nie zastępują próby pobrania i odtworzenia w docelowej przeglądarce.

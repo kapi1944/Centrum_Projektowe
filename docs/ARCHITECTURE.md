@@ -1,6 +1,6 @@
 # Architektura MVP
 
-## Przepływ Etapów 0–5 z integracją 3R
+## Przepływ Etapów 0–6 z integracją 3R
 
 **Wpis → Analiza wpisu → Weryfikacja → Zastosowanie → Decyzja / Analiza wpływu.**
 
@@ -56,6 +56,17 @@ Zdarzenia obejmują utworzenie i zakończenie pracy, utworzenie i rozwiązanie b
 
 ## Granice
 
-Brak operacji edycji lub usuwania oryginału. Nie chroni to przed ręczną zmianą IndexedDB w narzędziach przeglądarki. Brak synchronizacji kart, backendu, kont, eksportu, kopii zapasowych i service workera. Inna karta wymaga odświeżenia po konflikcie. Nie implementujemy `Document` ani `ProjectHealth`.
+Brak operacji edycji lub usuwania oryginału. Nie chroni to przed ręczną zmianą IndexedDB w narzędziach przeglądarki. Brak synchronizacji kart, backendu, kont i service workera. Inna karta wymaga odświeżenia po konflikcie. Nie implementujemy `Document` ani `ProjectHealth`.
 
 Testy Vitest i Testing Library sprawdzają domenę i interakcje UI w jsdom, a fake-indexeddb migracje, odtwarzanie stanu, wycofanie transakcji i współbieżność. Nie są dowodem trwałości w konkretnej przeglądarce ani po restarcie urządzenia.
+
+
+## Kopie zapasowe (Etap 6)
+
+`domain/kopieZapasowe.ts` zawiera format, walidatory zagnieżdżonych rekordów, kontrolę relacji, porównywanie i łączenie danych. Centralny `schematDanych` definiuje wszystkie 11 magazynów, ich etykiety i walidację. Klucze tego rejestru wyznaczają zakres transakcji zapisu, eksportu, importu oraz podglądu. Dodanie encji wymaga rozszerzenia typu danych i rejestru oraz reguł relacji; kompilator sprawdza kompletność rejestru. Nie dodano zależności ani migracji: IndexedDB pozostaje w wersji 5.
+
+`eksportujKopie` odczytuje wszystkie magazyny w jednej transakcji readonly i zwraca spójny obraz dopiero po oncomplete. `importujKopie` kopiuje argument i waliduje go przed otwarciem bazy. W jednej transakcji readwrite odczytuje bieżące dane, ponownie sprawdza relacje po połączeniu i kolejkuje zapisy. Wewnątrz transakcji nie ma oczekiwania na plik ani Promise. Konflikty ID zawierają oba rekordy i przerywają zapis; kolizje kluczy unikalnych również blokują import. Zastąpienie wymaga potwierdzenia na poziomie kontraktu repozytorium. clear oraz add należą do tej samej transakcji, więc błąd żądania, ograniczeń bazy lub limitu przestrzeni wycofuje całość. Sukces następuje wyłącznie w oncomplete.
+
+`pages/KopieZapasowe.tsx` obsługuje plik, podgląd bez zapisu, tryb, potwierdzenie i listę konfliktów z opisami oraz nazwami różniących się pól. Pełne rekordy można porównać w plikach kopii; interfejs nie pokazuje technicznych enumów. Po udanym imporcie hook odświeża projekcję. Odczyt pliku unieważnia poprzedni podgląd, a blokada operacji chroni przed ponownym kliknięciem. Eksport korzysta z Blob i lokalnego adresu pobrania, bez sieci. Ostrzeżenie o prywatności jest widoczne przed eksportem.
+
+Testy kopii obejmują pełny cykl 11 niepustych magazynów, pustą bazę, odrzucenie uszkodzeń, konflikty, łączenie, potwierdzone zastąpienie, ponowne otwarcie i błąd rzeczywistego żądania IndexedDB po wcześniejszych zapisach w transakcji. Test UI sprawdza podgląd bez zapisu, konflikt, potwierdzenie i odświeżenie rejestru.

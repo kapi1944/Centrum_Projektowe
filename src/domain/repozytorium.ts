@@ -3,8 +3,11 @@ import type { AkcjaWpisu, WynikZmianyWpisu } from './modele';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen, WynikUstalen } from './ustalenia';
 import type { AnalizaWpisu, OperacjaAnalizyWpisu, WynikAnalizyWpisu } from './analizaWpisu';
 import type { OperacjaRealizacji, StanRealizacji, WynikRealizacji } from './realizacja';
+import type { KopiaZapasowa, TrybImportu } from './kopieZapasowe';
 
 export interface RepozytoriumProjektowe {
+  eksportujKopie(): Promise<KopiaZapasowa>;
+  importujKopie(kopia: unknown, tryb: TrybImportu, potwierdzonoZastapienie?: boolean): Promise<void>;
   pobierzRealizacje(): Promise<StanRealizacji>;
   wykonajOperacjeRealizacji(operacja: OperacjaRealizacji, kontekst: KontekstZapisu): Promise<WynikRealizacji>;
   pobierzAnalizyWpisow(): Promise<AnalizaWpisu[]>;

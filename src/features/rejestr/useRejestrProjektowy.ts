@@ -21,6 +21,7 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
   const [realizacja, ustawRealizacje] = useState(pustaRealizacja);
   const [stan, ustawStan] = useState<'ladowanie' | 'gotowy' | 'blad'>('ladowanie');
   const [blad, ustawBlad] = useState('');
+  const [odswiezenie, ustawOdswiezenie] = useState(0);
 
   useEffect(() => {
     let aktywny = true;
@@ -42,7 +43,7 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
         ustawStan('blad');
       });
     return () => { aktywny = false; };
-  }, [repozytorium]);
+  }, [repozytorium, odswiezenie]);
 
   function utworzKontekst(): KontekstZapisu {
     return { idZdarzenia: crypto.randomUUID(), czas: new Date().toISOString(), zrodlo: { typ: 'USER', nazwa: 'Wpis ręczny' } };
@@ -114,5 +115,5 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
     ustawZdarzenia((poprzednie) => [...poprzednie, ...wynik.zdarzenia]);
   }
 
-  return { projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, realizacja, wykonajRealizacje, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
+  return { odswiez: () => ustawOdswiezenie((poprzednie) => poprzednie + 1), projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, realizacja, wykonajRealizacje, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
 }
