@@ -20,7 +20,7 @@ async function przygotuj(tresc = '  Decyduję: zapis lokalny.\nWpływ: zmiana za
   const uzytkownik = osoba.setup();
   const widok = render(<MemoryRouter initialEntries={['/inbox']}><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);
   await kliknij(uzytkownik, await screen.findByRole('button', { name: 'Analizuj' }));
-  await screen.findByRole('button', { name: 'Rozpocznij review' });
+  await screen.findByRole('button', { name: 'Rozpocznij weryfikację' });
   return { nazwaBazy, repozytorium, uzytkownik, widok, tresc };
 }
 
@@ -29,21 +29,30 @@ describe('Review CaptureAnalysis w Inbox', () => {
     const { repozytorium, uzytkownik, tresc } = await przygotuj();
     expect(screen.getByRole('heading', { name: 'Oryginalny wpis' }).nextElementSibling?.textContent).toBe(tresc);
     expect((await repozytorium.pobierzWpisy())[0].status).toBe('ANALYZED');
-    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Rozpocznij review' }));
-    expect(await screen.findByRole('button', { name: 'Zakończ review' })).toBeDisabled();
+    const panel = screen.getByRole('region', { name: 'Analiza wpisu i weryfikacja' });
+    expect(panel).not.toHaveTextContent(/review|GENERATED|RULE_BASED|SYSTEM/);
+    expect(within(panel).getByText(/Wygenerowana/)).toBeInTheDocument();
+    expect(within(panel).getAllByText(/źródło: System/).length).toBeGreaterThan(0);
+    expect(within(panel).getByRole('heading', { name: 'Twierdzenia do potwierdzenia' })).toBeInTheDocument();
+    await kliknij(uzytkownik, within(panel).getByText('Szczegóły techniczne'));
+    expect(within(panel).getByText('Typ dostawcy: Analiza regułowa')).toBeVisible();
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Rozpocznij weryfikację' }));
+    expect(within(panel).getByText(/W trakcie weryfikacji/)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Zakończ weryfikację' })).toBeDisabled();
     const decyzje = screen.getByRole('region', { name: 'Potencjalne decyzje' });
     await kliknij(uzytkownik, within(decyzje).getByRole('button', { name: 'Edytuj' }));
     await uzytkownik.clear(screen.getByLabelText('Treść po edycji'));
     await uzytkownik.type(screen.getByLabelText('Treść po edycji'), 'Zapis lokalny po korekcie');
     await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zatwierdź edycję' }));
-    await within(decyzje).findByText(/Zatwierdzono po edycji/, { selector: 'article > p' });
+    await within(decyzje).findByText(/Zaakceptowano po edycji/, { selector: 'article > p' });
     await kliknij(uzytkownik, within(screen.getByRole('region', { name: 'Możliwy wpływ' })).getByRole('button', { name: 'Akceptuj' }));
     await kliknij(uzytkownik, within(screen.getByRole('region', { name: 'Proponowane działania' })).getByRole('button', { name: 'Akceptuj' }));
     await kliknij(uzytkownik, within(screen.getByRole('region', { name: 'Pytania' })).getByRole('button', { name: 'Odrzuć' }));
-    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zakończ review' }));
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zakończ weryfikację' }));
     expect(await screen.findByRole('button', { name: 'Zastosuj zatwierdzone' })).toBeEnabled();
     expect(await repozytorium.pobierzDecyzje()).toEqual([]);
     expect((await repozytorium.pobierzWpisy())[0].status).toBe('REVIEWED');
+    expect(within(panel).getByText(/· Zweryfikowana/)).toBeInTheDocument();
     await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zastosuj zatwierdzone' }));
     const odnosnik = await screen.findByRole('link', { name: 'Otwórz decyzję' });
     expect((await repozytorium.pobierzDecyzje())[0]).toMatchObject({ tytul: 'Zapis lokalny po korekcie', status: 'PROPOSED', wpisZrodlowyId: 'w1' });
@@ -57,13 +66,15 @@ describe('Review CaptureAnalysis w Inbox', () => {
     expect((await repozytorium.pobierzProjekty())[0].nastepnyKrok).toBe('Sprawdź wpływ nowej informacji na ustalenia projektu.');
     await kliknij(uzytkownik, odnosnik);
     const karta = await screen.findByRole('article', { name: 'DEC-0001: Zapis lokalny po korekcie' });
+    expect(within(karta).getByText('Status: Propozycja')).toBeInTheDocument();
+    expect(within(karta).getByText('Źródło: System')).toBeInTheDocument();
     expect(within(karta).getByText(/Analiza źródłowa:/)).toBeInTheDocument();
-    expect(within(karta).getByRole('link', { name: 'Otwórz wpis w Inbox', hidden: true })).toBeInTheDocument();
+    expect(within(karta).getByRole('link', { name: 'Otwórz wpis w Skrzynce', hidden: true })).toBeInTheDocument();
   });
 
   it('po ponownym otwarciu pokazuje częściowe review, edycję, oryginał i historię', async () => {
     const { nazwaBazy, uzytkownik, widok, tresc } = await przygotuj('  Zakładam zgodność.\nCzy sprawdzono?  ');
-    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Rozpocznij review' }));
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Rozpocznij weryfikację' }));
     await kliknij(uzytkownik, within(screen.getByRole('region', { name: 'Założenia' })).getByRole('button', { name: 'Edytuj' }));
     await uzytkownik.clear(screen.getByLabelText('Treść po edycji'));
     await uzytkownik.type(screen.getByLabelText('Treść po edycji'), 'Zakładam zgodność wersji 1');
@@ -74,23 +85,23 @@ describe('Review CaptureAnalysis w Inbox', () => {
     await screen.findByText('Zakładam zgodność wersji 1', { selector: 'article > p' });
     expect(screen.getByRole('heading', { name: 'Oryginalny wpis' }).nextElementSibling?.textContent).toBe(tresc);
     expect(screen.getByText(/Akceptacja założenia zachowuje założenie/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Zakończ review' })).toBeDisabled();
-    await kliknij(uzytkownik, screen.getByText('Historia review'));
-    expect(screen.getByText(/Wpis ręczny \(USER\)/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zakończ weryfikację' })).toBeDisabled();
+    await kliknij(uzytkownik, screen.getByText('Historia weryfikacji'));
+    expect(screen.getByText(/Wpis ręczny \(Użytkownik\)/)).toBeInTheDocument();
   });
 
   it('błąd apply pozostawia UI i bazę w REVIEWED, pozwalając ponowić zapis', async () => {
     const { repozytorium, uzytkownik } = await przygotuj('Decyduję: zapis lokalny.');
-    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Rozpocznij review' }));
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Rozpocznij weryfikację' }));
     await kliknij(uzytkownik, screen.getByRole('button', { name: 'Akceptuj' }));
-    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zakończ review' }));
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zakończ weryfikację' }));
     const oryginalnaOperacja = repozytorium.wykonajOperacjeAnalizyWpisu;
     const zapis = vi.spyOn(repozytorium, 'wykonajOperacjeAnalizyWpisu').mockImplementationOnce(async (operacja, kontekst) => {
       const historia = await repozytorium.pobierzZdarzenia();
       return oryginalnaOperacja(operacja, { ...kontekst, idZdarzenia: historia[0].id });
     });
     await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zastosuj zatwierdzone' }));
-    await screen.findByRole('alert');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się zapisać danych lokalnych.');
     await waitFor(() => expect(screen.getByRole('button', { name: 'Zastosuj zatwierdzone' })).toBeEnabled());
     expect((await repozytorium.pobierzWpisy())[0].status).toBe('REVIEWED');
     expect(await repozytorium.pobierzDecyzje()).toEqual([]);

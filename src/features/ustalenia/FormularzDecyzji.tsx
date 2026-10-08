@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
-import type { Projekt, Wpis } from '../../domain/modele';
+import { etykietyZrodel, type Projekt, type Wpis } from '../../domain/modele';
 import { typyElementow, type DaneDecyzji, type PowiazanyElement } from '../../domain/ustalenia';
 
 export function FormularzDecyzji({ poczatkowe, projekty, wpisy, prefiks, etykieta, zapisz }: {
@@ -41,7 +41,7 @@ export function FormularzDecyzji({ poczatkowe, projekty, wpisy, prefiks, etykiet
       </fieldset>
       <label htmlFor={`${prefiks}-typ`}>Autor źródła</label>
       <select id={`${prefiks}-typ`} value={dane.typZrodla} onChange={(zdarzenie) => ustawDane({ ...dane, typZrodla: zdarzenie.target.value as DaneDecyzji['typZrodla'] })}>
-        <option value="USER">Użytkownik</option><option value="SYSTEM">System</option><option value="AI">AI</option>
+        {Object.entries(etykietyZrodel).map(([typ, nazwa]) => <option key={typ} value={typ}>{nazwa}</option>)}
       </select>
       <label htmlFor={`${prefiks}-zrodlo`}>Nazwa źródła</label>
       <input id={`${prefiks}-zrodlo`} value={dane.nazwaZrodla} onChange={(zdarzenie) => ustawDane({ ...dane, nazwaZrodla: zdarzenie.target.value })} required />

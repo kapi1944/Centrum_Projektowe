@@ -67,7 +67,7 @@ export function utworzRepozytoriumIndexedDb(
         if (zablokowano) zadanie.result.close();
         else rozwiaz(zadanie.result);
       };
-      zadanie.onerror = () => odrzuc(zadanie.error);
+      zadanie.onerror = () => odrzuc(new Error('Nie udało się otworzyć lokalnej bazy danych.'));
       zadanie.onblocked = () => {
         zablokowano = true;
         odrzuc(new Error('Zamknij pozostałe karty aplikacji i odśwież stronę.'));
@@ -82,7 +82,7 @@ export function utworzRepozytoriumIndexedDb(
         const transakcja = baza.transaction(magazyn, 'readonly');
         const zadanie = transakcja.objectStore(magazyn).getAll();
         transakcja.oncomplete = () => rozwiaz(zadanie.result as T[]);
-        transakcja.onabort = () => odrzuc(transakcja.error ?? new Error('Odczyt przerwany.'));
+        transakcja.onabort = () => odrzuc(new Error('Nie udało się odczytać danych lokalnych.'));
       });
     } finally {
       baza.close();
@@ -102,7 +102,7 @@ export function utworzRepozytoriumIndexedDb(
         let wynik: T;
         let bladOperacji: unknown;
         transakcja.oncomplete = () => rozwiaz(wynik);
-        transakcja.onabort = () => odrzuc(bladOperacji ?? transakcja.error ?? new Error('Zapis przerwany.'));
+        transakcja.onabort = () => odrzuc(bladOperacji instanceof Error && !(bladOperacji instanceof DOMException) ? bladOperacji : new Error('Nie udało się zapisać danych lokalnych. Spróbuj ponownie.'));
         function przerwij(blad: unknown) {
           bladOperacji = blad;
           transakcja.abort();

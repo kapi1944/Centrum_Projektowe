@@ -6,7 +6,7 @@ export const statusyProjektu = {
 export type StatusProjektu = keyof typeof statusyProjektu;
 export type StatusWpisu = 'UNPROCESSED' | 'ANALYZED' | 'REVIEWED' | 'APPLIED' | 'DISMISSED';
 export const etykietyStatusowWpisu: Record<StatusWpisu, string> = {
-  UNPROCESSED: 'Nieprzetworzony', ANALYZED: 'Przeanalizowany', REVIEWED: 'Sprawdzony', APPLIED: 'Zastosowany', DISMISSED: 'Odrzucony',
+  UNPROCESSED: 'Nieprzetworzony', ANALYZED: 'Przeanalizowany', REVIEWED: 'Zweryfikowany', APPLIED: 'Zastosowany', DISMISSED: 'Odrzucony',
 };
 export type TypZrodlaWpisu = 'MANUAL' | 'IMPORT' | 'OTHER';
 
@@ -14,6 +14,10 @@ export interface ZrodloDanych {
   typ: 'USER' | 'SYSTEM' | 'AI';
   nazwa: string;
 }
+
+export const etykietyZrodel: Record<ZrodloDanych['typ'], string> = {
+  USER: 'Użytkownik', SYSTEM: 'System', AI: 'Sztuczna inteligencja',
+};
 
 export interface DaneProjektu {
   nazwa: string;

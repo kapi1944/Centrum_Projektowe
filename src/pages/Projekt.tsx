@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { statusyProjektu, type Projekt as ModelProjektu, type ZdarzenieAktywnosci, type ZmianaProjektu } from '../domain/modele';
+import { etykietyZrodel, statusyProjektu, type Projekt as ModelProjektu, type ZdarzenieAktywnosci, type ZmianaProjektu } from '../domain/modele';
 import { FormularzProjektu } from '../features/projekty/FormularzProjektu';
 import { FormularzPunktuPowrotu } from '../features/projekty/FormularzPunktuPowrotu';
 import { formatujDate } from '../shared/formatujDate';
@@ -64,8 +64,8 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt }: {
       <h2 id="historia-projektu">Historia projektu</h2>
       <p>Ostatnie 20 zdarzeń. Historia jest rejestrowana od Etapu 1.</p>
       {historia.length === 0 ? <p>Brak zarejestrowanych zdarzeń.</p> : <ol className="lista-rekordow">{historia.map((zdarzenie) => <li key={zdarzenie.id}>
-        <strong>{zdarzenie.tytul}</strong>
-        <p>{formatujDate(zdarzenie.utworzono)} · {{ PROJECT: 'Projekt', CAPTURE: 'Wpis', DECISION: 'Decyzja', IMPACT: 'Wpływ' }[zdarzenie.typEncji]} · {zdarzenie.zrodlo.nazwa} ({zdarzenie.zrodlo.typ})</p>
+        <strong>{zdarzenie.typZdarzenia === 'CAPTURE_ANALYZED' ? 'Wygenerowano analizę wpisu — wymaga weryfikacji' : zdarzenie.typZdarzenia === 'CAPTURE_REVIEWED' ? 'Zakończono weryfikację analizy wpisu' : zdarzenie.tytul}</strong>
+        <p>{formatujDate(zdarzenie.utworzono)} · {{ PROJECT: 'Projekt', CAPTURE: 'Wpis', DECISION: 'Decyzja', IMPACT: 'Wpływ' }[zdarzenie.typEncji]} · {zdarzenie.zrodlo.nazwa} ({etykietyZrodel[zdarzenie.zrodlo.typ]})</p>
         {zdarzenie.opis && <p className="surowy-wpis">{zdarzenie.opis}</p>}
       </li>)}</ol>}
     </section>

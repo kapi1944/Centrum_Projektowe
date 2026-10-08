@@ -19,7 +19,7 @@ export function Start({ projekty, wpisy }: { projekty: Projekt[]; wpisy: Wpis[] 
       <section aria-labelledby="tytul-podsumowania">
         <h2 id="tytul-podsumowania">Twój punkt startowy</h2>
         <p>Projekty: {projekty.length} · Surowe wpisy: {wpisy.length}</p>
-        <div className="odnosniki"><Link to="/projekty">Otwórz projekty</Link><Link to="/inbox">Zapisz wpis w Inbox</Link></div>
+        <div className="odnosniki"><Link to="/projekty">Otwórz projekty</Link><Link to="/inbox">Zapisz nowy wpis</Link></div>
       </section>
       <section aria-labelledby="tytul-projektow">
         <h2 id="tytul-projektow">Twoje projekty</h2>
@@ -41,8 +41,8 @@ export function Start({ projekty, wpisy }: { projekty: Projekt[]; wpisy: Wpis[] 
       </section>
       <section aria-labelledby="tytul-ostatniego-wpisu">
         <h2 id="tytul-ostatniego-wpisu">Ostatnio zapisany wpis</h2>
-        {ostatniWpis ? <><p className="surowy-wpis">{ostatniWpis.trescOryginalna}</p><small>{formatujDate(ostatniWpis.utworzono)}</small></> : <p>Nie masz jeszcze wpisów. Zacznij od zapisania myśli w Inbox.</p>}
-        <p>Punkt powrotu uzupełnisz na stronie projektu. Analiza wpisów będzie dostępna w kolejnym etapie.</p>
+        {ostatniWpis ? <><p className="surowy-wpis">{ostatniWpis.trescOryginalna}</p><small>{formatujDate(ostatniWpis.utworzono)}</small></> : <p>Nie masz jeszcze wpisów. Zacznij od zapisania myśli w Skrzynce.</p>}
+        <p>Punkt powrotu uzupełnisz na stronie projektu. W Skrzynce możesz analizować wpisy, weryfikować propozycje i stosować zatwierdzone elementy.</p>
       </section>
     </>
   );

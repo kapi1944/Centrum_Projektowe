@@ -17,7 +17,7 @@ export function Aplikacja({ repozytorium }: { repozytorium: RepozytoriumProjekto
       <nav aria-label="Główna nawigacja">
         <NavLink to="/" end>Start</NavLink>
         <NavLink to="/projekty">Projekty</NavLink>
-        <NavLink to="/inbox">Inbox</NavLink>
+        <NavLink to="/inbox">Skrzynka</NavLink>
       </nav>
     </header>
     <main id="tresc" tabIndex={-1}>

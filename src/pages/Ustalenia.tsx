@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type { Projekt, Wpis } from '../domain/modele';
-import { statusyDecyzji, type AnalizaWplywu, type DaneDecyzji, type Decyzja, type OperacjaUstalen } from '../domain/ustalenia';
+import { etykietyFiltrowDecyzji, type AnalizaWplywu, type DaneDecyzji, type Decyzja, type OperacjaUstalen } from '../domain/ustalenia';
 import { FormularzDecyzji } from '../features/ustalenia/FormularzDecyzji';
 import { KartaDecyzji } from '../features/ustalenia/KartaDecyzji';
 
@@ -30,7 +30,7 @@ export function Ustalenia({ projekty, wpisy, decyzje, analizy, wykonaj }: {
     }} />}
     <p><label htmlFor="filtr-ustalen">Widok ustaleń</label>{' '}<select id="filtr-ustalen" value={filtr} onChange={(zdarzenie) => { ustawFiltr(zdarzenie.target.value); ustawParametry({}); }}>
       <option value="wszystkie">Wszystkie</option>
-      {Object.entries(statusyDecyzji).map(([status, nazwa]) => <option key={status} value={status}>{nazwa}</option>)}
+      {Object.entries(etykietyFiltrowDecyzji).map(([status, nazwa]) => <option key={status} value={status}>{nazwa}</option>)}
     </select></p>
     {!widoczne.length && <p>Brak ustaleń w tym widoku.</p>}
     {widoczne.map((decyzja) => <KartaDecyzji key={`${decyzja.id}-${decyzja.wersja}`} decyzja={decyzja} decyzje={decyzje} projekty={projekty} wpisy={wpisy} analizy={analizy} projektId={projekt.id} wykonaj={wykonaj} />)}

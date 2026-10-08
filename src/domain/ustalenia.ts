@@ -2,10 +2,14 @@ import type { KontekstZapisu, Projekt, PunktPowrotu, Wpis, ZdarzenieAktywnosci, 
 import { zmienProjekt } from './operacje';
 
 export const statusyDecyzji = {
-  PROPOSED: 'Propozycje', ACCEPTED: 'Aktywne', IMPLEMENTATION_PLANNED: 'Planowane',
-  PARTIALLY_IMPLEMENTED: 'Częściowo wdrożone', IMPLEMENTED: 'Wdrożone', SUPERSEDED: 'Zastąpione', REJECTED: 'Odrzucone',
+  PROPOSED: 'Propozycja', ACCEPTED: 'Zaakceptowana', IMPLEMENTATION_PLANNED: 'Zaplanowana do wdrożenia',
+  PARTIALLY_IMPLEMENTED: 'Częściowo wdrożona', IMPLEMENTED: 'Wdrożona', SUPERSEDED: 'Zastąpiona', REJECTED: 'Odrzucona',
 } as const;
 export type StatusDecyzji = keyof typeof statusyDecyzji;
+export const etykietyFiltrowDecyzji: Record<StatusDecyzji, string> = {
+  PROPOSED: 'Propozycje', ACCEPTED: 'Zaakceptowane', IMPLEMENTATION_PLANNED: 'Zaplanowane',
+  PARTIALLY_IMPLEMENTED: 'Częściowo wdrożone', IMPLEMENTED: 'Wdrożone', SUPERSEDED: 'Zastąpione', REJECTED: 'Odrzucone',
+};
 export interface PowiazanyElement {
   typ: 'TASK' | 'WORK_ITEM' | 'PROJECT_ELEMENT' | 'BLOCKER' | 'DOCUMENT';
   id: string;

@@ -51,7 +51,7 @@ export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, 
   }
 
   return <>
-    <h1>Inbox</h1>
+    <h1>Skrzynka wpisów</h1>
     <p>Zachowaj surową myśl. Oryginał zostanie zapisany bez zmian.</p>
     <form onSubmit={zapisz}>
       <label htmlFor="tresc-wpisu">Co chcesz zapisać?</label>

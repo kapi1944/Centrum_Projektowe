@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import uzytkownik from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -12,11 +12,16 @@ describe('Shell aplikacji', () => {
     const osoba = uzytkownik.setup();
     const widok = render(<MemoryRouter><Aplikacja repozytorium={utworzRepozytoriumIndexedDb(nazwaBazy)} /></MemoryRouter>);
     await screen.findByRole('heading', { name: 'Centrum Projektowe' });
+    const nawigacja = screen.getByRole('navigation', { name: 'Główna nawigacja' });
+    expect(within(nawigacja).getByRole('link', { name: 'Skrzynka' })).toHaveAttribute('href', '/inbox');
+    expect(nawigacja).not.toHaveTextContent(/Inbox/i);
+    expect(screen.getByText(/W Skrzynce możesz analizować wpisy/)).toBeInTheDocument();
+    expect(screen.queryByText(/Analiza wpisów będzie dostępna/)).not.toBeInTheDocument();
     await osoba.click(screen.getByRole('link', { name: 'Projekty' }));
     await osoba.type(screen.getByLabelText('Nazwa projektu'), 'Mój projekt');
     await osoba.click(screen.getByRole('button', { name: 'Dodaj projekt' }));
     await screen.findByRole('heading', { name: 'Mój projekt' });
-    await osoba.click(screen.getByRole('link', { name: 'Inbox' }));
+    await osoba.click(screen.getByRole('link', { name: 'Skrzynka' }));
     const oryginal = '  Pomysł\nDruga linia  ';
     await osoba.type(screen.getByLabelText('Co chcesz zapisać?'), oryginal);
     await osoba.selectOptions(screen.getByLabelText('Projekt'), screen.getByRole('option', { name: 'Mój projekt' }));
@@ -72,6 +77,7 @@ describe('Shell aplikacji', () => {
     await osoba.click(screen.getByRole('button', { name: 'Dodaj projekt' }));
     await osoba.click(await screen.findByRole('link', { name: 'Pamięć projektu' }));
     expect(screen.getByText('Utworzono projekt')).toBeInTheDocument();
+    expect(screen.getAllByText(/Wpis ręczny \(Użytkownik\)/).length).toBeGreaterThan(0);
     await osoba.click(screen.getByRole('button', { name: 'Edytuj projekt' }));
     await osoba.selectOptions(screen.getByLabelText('Status projektu'), 'ACTIVE');
     await osoba.clear(screen.getByLabelText('Opis'));
@@ -98,4 +104,12 @@ describe('Shell aplikacji', () => {
     expect(screen.getByText('Zarchiwizowano projekt')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edytuj projekt' })).not.toBeInTheDocument();
   });
+
+  it.each(['/nieznana', '/projekty/nieistniejacy', '/projekty/nieistniejacy/ustalenia'])(
+    'obsługuje bezpośrednie wejście na nieistniejący adres %s', async (adres) => {
+      render(<MemoryRouter initialEntries={[adres]}><Aplikacja repozytorium={utworzRepozytoriumIndexedDb(crypto.randomUUID())} /></MemoryRouter>);
+      expect(await screen.findByRole('heading', { name: adres === '/nieznana' ? 'Nie znaleziono strony' : 'Nie znaleziono projektu' })).toBeInTheDocument();
+      expect(within(screen.getByRole('main')).getByRole('link', { name: adres === '/nieznana' ? 'Wróć na start' : /^(Wróć do projektów|Projekty)$/ })).toHaveAttribute('href', adres === '/nieznana' ? '/' : '/projekty');
+    },
+  );
 });

@@ -63,10 +63,10 @@ describe('CaptureAnalysis z istniejącymi ustaleniami', () => {
 
   it('PENDING blokuje zakończenie review i apply, także obok ACCEPTED', async () => {
     const { repozytorium, rozpocznij, ocen, zakoncz, zastosuj, pobierz } = await przygotuj([element('POSSIBLE_DECISION'), element('POSSIBLE_DECISION')]);
-    await expect(zastosuj()).rejects.toThrow('review');
+    await expect(zastosuj()).rejects.toThrow('weryfikację');
     await rozpocznij(); await ocen(0, 'ACCEPTED');
     await expect(zakoncz()).rejects.toThrow('wszystkie elementy');
-    await expect(zastosuj()).rejects.toThrow('review');
+    await expect(zastosuj()).rejects.toThrow('weryfikację');
     expect((await pobierz()).elementy[1].statusReview).toBe('PENDING');
     expect(await repozytorium.pobierzDecyzje()).toEqual([]);
     expect((await repozytorium.pobierzWpisy())[0].status).toBe('ANALYZED');

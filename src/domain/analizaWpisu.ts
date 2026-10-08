@@ -2,13 +2,19 @@ import type { KontekstZapisu, Wpis, ZrodloDanych } from './modele';
 import { wykonajOperacjeUstalen, type StanUstalen, type WynikUstalen } from './ustalenia';
 
 export const typyAnalizy = {
-  FACT: 'Fakty', ASSUMPTION: 'Założenia', SUGGESTION: 'Sugestie', POSSIBLE_DECISION: 'Potencjalne decyzje',
+  FACT: 'Twierdzenia do potwierdzenia', ASSUMPTION: 'Założenia', SUGGESTION: 'Sugestie', POSSIBLE_DECISION: 'Potencjalne decyzje',
   OPEN_QUESTION: 'Pytania', RECOMMENDED_ACTION: 'Proponowane działania', IMPACT_CANDIDATE: 'Możliwy wpływ',
 } as const;
 export type TypElementuAnalizy = keyof typeof typyAnalizy;
 export type StatusReview = 'PENDING' | 'ACCEPTED' | 'EDITED' | 'REJECTED';
 export const etykietyReview: Record<StatusReview, string> = {
-  PENDING: 'Oczekuje na review', ACCEPTED: 'Zaakceptowano', EDITED: 'Zatwierdzono po edycji', REJECTED: 'Odrzucono',
+  PENDING: 'Oczekuje na weryfikację', ACCEPTED: 'Zaakceptowano', EDITED: 'Zaakceptowano po edycji', REJECTED: 'Odrzucono',
+};
+export const etykietyStatusowAnalizy: Record<AnalizaWpisu['status'], string> = {
+  GENERATED: 'Wygenerowana', IN_REVIEW: 'W trakcie weryfikacji', REVIEWED: 'Zweryfikowana', APPLIED: 'Zastosowana',
+};
+export const etykietyDostawcowAnalizy: Record<WynikDostawcyAnalizy['typDostawcy'], string> = {
+  RULE_BASED: 'Analiza regułowa', REMOTE_LLM: 'Zdalny model językowy', LOCAL_LLM: 'Lokalny model językowy',
 };
 export interface PropozycjaAnalizy {
   typ: TypElementuAnalizy;
@@ -62,7 +68,7 @@ export function wykonajAnalizeWpisu(
 ): WynikAnalizyWpisu {
   let analiza: AnalizaWpisu;
   if (operacja.rodzaj === 'generuj') {
-    if (analizyWpisow.some((analiza) => analiza.wpisId === operacja.wpisId || analiza.id === operacja.id)) throw new Error('Wpis ma już analizę. Otwórz zapisane review.');
+    if (analizyWpisow.some((analiza) => analiza.wpisId === operacja.wpisId || analiza.id === operacja.id)) throw new Error('Wpis ma już analizę. Otwórz zapisaną weryfikację.');
     const wynik = operacja.wynik;
     if (!['RULE_BASED', 'REMOTE_LLM', 'LOCAL_LLM'].includes(wynik.typDostawcy) || !wynik.wersjaAnalizy.trim()) throw new Error('Niepoprawne pochodzenie analizy.');
     analiza = {
@@ -77,7 +83,7 @@ export function wykonajAnalizeWpisu(
   } else {
     const odczytana = analizyWpisow.find((analiza) => analiza.id === operacja.id);
     if (!odczytana) throw new Error('Analiza wpisu nie istnieje.');
-    if (odczytana.wersja !== operacja.wersja) throw new Error('Analiza zmieniła się. Odśwież dane przed review lub zastosowaniem.');
+    if (odczytana.wersja !== operacja.wersja) throw new Error('Analiza zmieniła się. Odśwież dane przed weryfikacją lub zastosowaniem.');
     if (odczytana.status === 'APPLIED') throw new Error('Analiza została już zastosowana.');
     analiza = { ...odczytana, wersja: odczytana.wersja + 1, elementy: odczytana.elementy.map((element) => ({ ...element })) };
   }
@@ -96,14 +102,14 @@ export function wykonajAnalizeWpisu(
       if (wpis.status !== 'UNPROCESSED') throw new Error('Analiza wymaga nieprzetworzonego wpisu.');
       wynik.wpis.status = 'ANALYZED';
       wynik.wpis.odlozonoDoAnalizy = null;
-      zdarzenie('CAPTURE_ANALYZED', 'Wygenerowano analizę wpisu — wymaga review');
+      zdarzenie('CAPTURE_ANALYZED', 'Wygenerowano analizę wpisu — wymaga weryfikacji');
       break;
     case 'rozpocznij':
-      if (analiza.status !== 'GENERATED') throw new Error('Review zostało już rozpoczęte.');
+      if (analiza.status !== 'GENERATED') throw new Error('Weryfikacja została już rozpoczęta.');
       analiza.status = 'IN_REVIEW';
       break;
     case 'review': {
-      if (analiza.status !== 'IN_REVIEW') throw new Error('Najpierw otwórz review.');
+      if (analiza.status !== 'IN_REVIEW') throw new Error('Najpierw rozpocznij weryfikację.');
       const element = analiza.elementy.find((element) => element.id === operacja.elementId);
       if (!element || !['ACCEPTED', 'EDITED', 'REJECTED'].includes(operacja.status)) throw new Error('Niepoprawne rozstrzygnięcie elementu.');
       if (operacja.status === 'EDITED' && !operacja.trescEdytowana?.trim()) throw new Error('Treść po edycji nie może być pusta.');
@@ -113,14 +119,14 @@ export function wykonajAnalizeWpisu(
       break;
     }
     case 'zakoncz':
-      if (analiza.status !== 'IN_REVIEW' || analiza.elementy.some((element) => element.statusReview === 'PENDING')) throw new Error('Rozstrzygnij wszystkie elementy przed zakończeniem review.');
+      if (analiza.status !== 'IN_REVIEW' || analiza.elementy.some((element) => element.statusReview === 'PENDING')) throw new Error('Rozstrzygnij wszystkie elementy przed zakończeniem weryfikacji.');
       analiza.status = 'REVIEWED';
       analiza.sprawdzono = kontekst.czas;
       wynik.wpis.status = 'REVIEWED';
-      zdarzenie('CAPTURE_REVIEWED', 'Zakończono review analizy wpisu');
+      zdarzenie('CAPTURE_REVIEWED', 'Zakończono weryfikację analizy wpisu');
       break;
     case 'zastosuj': {
-      if (analiza.status !== 'REVIEWED' || analiza.elementy.some((element) => element.statusReview === 'PENDING')) throw new Error('Zakończ review przed zastosowaniem.');
+      if (analiza.status !== 'REVIEWED' || analiza.elementy.some((element) => element.statusReview === 'PENDING')) throw new Error('Zakończ weryfikację przed zastosowaniem.');
       const zatwierdzone = analiza.elementy.filter((element) => element.statusReview === 'ACCEPTED' || element.statusReview === 'EDITED');
       if (!zatwierdzone.length) throw new Error('Brak zatwierdzonych elementów do zastosowania.');
       const projektId = wpis.projektId ?? operacja.projektId;
@@ -135,7 +141,7 @@ export function wykonajAnalizeWpisu(
         const wynikUstalen = wykonajOperacjeUstalen(stanBiezacy, element.typ === 'POSSIBLE_DECISION'
           ? { rodzaj: 'utworz', id: `decyzja-${element.id}`, dane: {
             tytul: tresc, opis: tresc, projektIds: [projektId!], typZrodla: element.zrodlo,
-            nazwaZrodla: analiza.nazwaDostawcy ?? analiza.typDostawcy, odniesienieZrodla: analiza.id,
+            nazwaZrodla: analiza.nazwaDostawcy ?? etykietyDostawcowAnalizy[analiza.typDostawcy], odniesienieZrodla: analiza.id,
             wpisZrodlowyId: wpis.id, ...powiazanie, notatki: 'Zatwierdzony element analizy; decyzja wymaga osobnego przyjęcia.', powiazaneElementy: [],
           } }
           : { rodzaj: 'analizuj', zrodlo: { typ: 'CAPTURE', id: wpis.id }, kontekstAnalizyWpisu: { ...powiazanie, projektId: projektId!, tresc } },

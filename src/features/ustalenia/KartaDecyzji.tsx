@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Projekt, Wpis } from '../../domain/modele';
+import { etykietyZrodel, type Projekt, type Wpis } from '../../domain/modele';
 import { statusyDecyzji, typyElementow, type Decyzja, type OperacjaUstalen, type AnalizaWplywu, type StatusDecyzji } from '../../domain/ustalenia';
 import { formatujDate } from '../../shared/formatujDate';
 import { FormularzDecyzji } from './FormularzDecyzji';
@@ -34,9 +34,12 @@ export function KartaDecyzji({ decyzja, decyzje, projekty, wpisy, analizy, proje
     <p className="surowy-wpis">{decyzja.opis}</p>
     <p>Status: {statusyDecyzji[decyzja.status]}</p>
     <p>Projekty: {decyzja.projektIds.map((id) => <Link key={id} to={`/projekty/${id}/ustalenia`}>{projekty.find((projekt) => projekt.id === id)?.nazwa ?? id}{' '}</Link>)}</p>
-    <p>Źródło: {decyzja.nazwaZrodla} ({decyzja.typZrodla}) {decyzja.odniesienieZrodla}</p>
-    {decyzja.analizaWpisuId && <p>Analiza źródłowa: {decyzja.analizaWpisuId} · element: {decyzja.elementAnalizyId}. Zatwierdzenie elementu analizy jest odrębne od przyjęcia decyzji.</p>}
-    {wpis && <details><summary>Powiązany wpis — oryginał</summary><p className="surowy-wpis">{wpis.trescOryginalna}</p><Link to={`/inbox?wpis=${encodeURIComponent(wpis.id)}`}>Otwórz wpis w Inbox</Link></details>}
+    <p>Źródło: {decyzja.analizaWpisuId ? etykietyZrodel[decyzja.typZrodla] : <>{decyzja.nazwaZrodla} ({etykietyZrodel[decyzja.typZrodla]})</>} {!decyzja.analizaWpisuId && decyzja.odniesienieZrodla}</p>
+    {decyzja.analizaWpisuId && <>
+      <p>Analiza źródłowa: zatwierdzony element analizy. Przyjęcie decyzji wymaga osobnego zatwierdzenia.</p>
+      <details><summary>Szczegóły techniczne</summary><p>Nazwa dostawcy: {decyzja.nazwaZrodla} · Identyfikator analizy: {decyzja.analizaWpisuId} · Identyfikator elementu: {decyzja.elementAnalizyId}</p></details>
+    </>}
+    {wpis && <details><summary>Powiązany wpis — oryginał</summary><p className="surowy-wpis">{wpis.trescOryginalna}</p><Link to={`/inbox?wpis=${encodeURIComponent(wpis.id)}`}>Otwórz wpis w Skrzynce</Link></details>}
     {decyzja.notatki && <p className="surowy-wpis">Notatki: {decyzja.notatki}</p>}
     <ul>{decyzja.powiazaneElementy.map((element, numer) => <li key={numer}>{typyElementow[element.typ]}: {element.tytul} ({element.id}) — odnośnik ręczny</li>)}</ul>
     {decyzja.zastapionaPrzezId && <p>Zastąpione przez {odnosnik(decyzja.zastapionaPrzezId)}</p>}
