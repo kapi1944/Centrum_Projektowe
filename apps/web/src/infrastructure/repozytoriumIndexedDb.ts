@@ -9,6 +9,7 @@ import { wykonajRealizacje, type StanRealizacji } from '../domain/realizacja';
 import { utworzJednostkePracyIndexedDb } from './jednostkaPracyIndexedDb';
 import { aktualizujPunktPowrotu, zapiszNowyWpis } from '../application/przypadkiUzycia';
 import { migrujAnalize, wykonajOperacjePrzebiegu, type PrzebiegAnalizyWpisu } from '../domain/przebiegiAnaliz';
+import { wykonajKorekte } from '../domain/korekty';
 
 export function utworzRepozytoriumIndexedDb(
   nazwaBazy = 'centrum-projektowe',
@@ -19,10 +20,13 @@ export function utworzRepozytoriumIndexedDb(
         odrzuc(new Error('Ta przeglądarka nie udostępnia IndexedDB.'));
         return;
       }
-      const zadanie = indexedDB.open(nazwaBazy, 6);
+      const zadanie = indexedDB.open(nazwaBazy, 7);
       let zablokowano = false;
       zadanie.onupgradeneeded = (zdarzenie) => {
         const baza = zadanie.result;
+        if (zdarzenie.oldVersion < 7) {
+          for (const nazwa of ['korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe']) baza.createObjectStore(nazwa, { keyPath: 'id' });
+        }
         if (zdarzenie.oldVersion === 0) {
           baza.createObjectStore('projekty', { keyPath: 'id' });
           baza.createObjectStore('wpisy', { keyPath: 'id' });
@@ -173,8 +177,35 @@ export function utworzRepozytoriumIndexedDb(
   }
 
   const jednostkaPracy = utworzJednostkePracyIndexedDb(otworzBaze);
+  async function repozytoriumKorekt(): Promise<DaneKopii> {
+    const baza = await otworzBaze();
+    try {
+      return await new Promise((rozwiaz, odrzuc) => {
+        const transakcja = baza.transaction(nazwyMagazynow, 'readonly');
+        let dane: DaneKopii;
+        odczytajDane(transakcja, (odczytane) => { dane = odczytane; });
+        transakcja.oncomplete = () => rozwiaz(dane);
+        transakcja.onabort = () => odrzuc(new Error('Nie udało się odczytać korekt.'));
+      });
+    } finally { baza.close(); }
+  }
   return {
     jednostkaPracy,
+    pobierzKorekty: async () => {
+      const kopia = await repozytoriumKorekt();
+      return { korekty: kopia.korekty, propozycjeZmian: kopia.propozycjeZmian, zestawyZmian: kopia.zestawyZmian, zdarzeniaDomenowe: kopia.zdarzeniaDomenowe };
+    },
+    wykonajOperacjeKorekty: (operacja, kontekst) => jednostkaPracy.wykonaj(['rewizje'], (repozytoria, zakoncz) => {
+      repozytoria.rewizje.pobierz((przed) => {
+        const po = wykonajKorekte(przed, operacja, kontekst);
+        sprawdzDaneKopii(po);
+        for (const magazyn of nazwyMagazynow) for (const rekord of po[magazyn]) {
+          const poprzedni = przed[magazyn].find((poprzedni) => poprzedni.id === rekord.id);
+          if (JSON.stringify(poprzedni) !== JSON.stringify(rekord)) repozytoria.rewizje.zapisz(magazyn, rekord, !poprzedni);
+        }
+        zakoncz(undefined);
+      });
+    }),
     eksportujKopie: async () => {
       const baza = await otworzBaze();
       try {
@@ -187,7 +218,7 @@ export function utworzRepozytoriumIndexedDb(
             try {
               // Spójny obraz wszystkich magazynów pochodzi z jednej transakcji.
               sprawdzDaneKopii(dane);
-              rozwiaz({ format: 'centrum-projektowe', schemaVersion: 2, appVersion: daneAplikacji.version, exportedAt: new Date().toISOString(), data: dane });
+              rozwiaz({ format: 'centrum-projektowe', schemaVersion: 3, appVersion: daneAplikacji.version, exportedAt: new Date().toISOString(), data: dane });
             } catch (blad) { odrzuc(blad); }
           };
         });
@@ -331,6 +362,8 @@ export function utworzRepozytoriumIndexedDb(
         if (--pozostalo !== 0) return;
         try {
           const stan: StanUstalen = { projekty: projekty.result, wpisy: wpisy.result, decyzje: decyzje.result, analizy: analizy.result };
+          if ((operacja.rodzaj === 'analizuj' && operacja.zrodlo.typ === 'CORRECTION')
+            || (operacja.rodzaj === 'rozstrzygnij' && stan.analizy.find((analiza) => analiza.id === operacja.analizaId)?.zrodlo.typ === 'CORRECTION')) throw new Error('Wpływ korekty wymaga review i zastosowania przez zestaw zmian korekty.');
           const wynik = wykonajOperacjeUstalen(stan, operacja, kontekst);
           for (const decyzja of wynik.decyzje) {
             const magazyn = transakcja.objectStore('decyzje');

@@ -36,6 +36,7 @@ describe('Shell aplikacji', () => {
 
   it('pokazuje błąd odczytu zamiast pozorować pustą bazę', async () => {
     const repozytorium: RepozytoriumProjektowe = { jednostkaPracy: { wykonaj: vi.fn() }, eksportujKopie: vi.fn(), importujKopie: vi.fn(),
+      pobierzKorekty: vi.fn().mockResolvedValue({ korekty: [], propozycjeZmian: [], zestawyZmian: [], zdarzeniaDomenowe: [] }), wykonajOperacjeKorekty: vi.fn(),
       pobierzRealizacje: vi.fn().mockResolvedValue({ obszary: [], etapy: [], elementyPracy: [], pytania: [], blokady: [] }), wykonajOperacjeRealizacji: vi.fn(),
       pobierzProjekty: vi.fn().mockRejectedValue(new Error('Brak storage')),
       pobierzWpisy: vi.fn().mockResolvedValue([]),
@@ -54,6 +55,7 @@ describe('Shell aplikacji', () => {
   it('zachowuje treść formularza po błędzie zapisu', async () => {
     const osoba = uzytkownik.setup();
     const repozytorium: RepozytoriumProjektowe = { jednostkaPracy: { wykonaj: vi.fn().mockRejectedValue(new Error('Brak miejsca')) }, eksportujKopie: vi.fn(), importujKopie: vi.fn(),
+      pobierzKorekty: vi.fn().mockResolvedValue({ korekty: [], propozycjeZmian: [], zestawyZmian: [], zdarzeniaDomenowe: [] }), wykonajOperacjeKorekty: vi.fn(),
       pobierzRealizacje: vi.fn().mockResolvedValue({ obszary: [], etapy: [], elementyPracy: [], pytania: [], blokady: [] }), wykonajOperacjeRealizacji: vi.fn(),
       pobierzProjekty: vi.fn().mockResolvedValue([]), pobierzWpisy: vi.fn().mockResolvedValue([]),
       dodajProjekt: vi.fn(), dodajWpis: vi.fn().mockRejectedValue(new Error('Brak miejsca')),

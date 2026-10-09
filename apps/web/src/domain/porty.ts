@@ -4,6 +4,13 @@ import type { AnalizaWpisu, OperacjaAnalizyWpisu, WynikAnalizyWpisu } from './an
 import type { OperacjaPrzebiegu, PrzebiegAnalizyWpisu } from './przebiegiAnaliz';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen, WynikUstalen } from './ustalenia';
 import type { OperacjaRealizacji, StanRealizacji, WynikRealizacji } from './realizacja';
+import type { DaneKopii } from './kopieZapasowe';
+import type { OperacjaKorekty, StanKorekt } from './korekty';
+
+export interface RepozytoriumKorekt {
+  pobierzKorekty(): Promise<StanKorekt>;
+  wykonajOperacjeKorekty(operacja: OperacjaKorekty, kontekst: KontekstZapisu): Promise<void>;
+}
 
 export interface RepozytoriumProjektow {
   pobierzProjekty(): Promise<Projekt[]>;
@@ -35,6 +42,10 @@ export interface RepozytoriumZdarzen {
 }
 
 export interface PortyTransakcji {
+  rewizje: {
+    pobierz(obsluz: (dane: DaneKopii) => void): void;
+    zapisz<K extends keyof DaneKopii>(magazyn: K, rekord: DaneKopii[K][number], nowy: boolean): void;
+  };
   projekty: {
     pobierz(id: string, obsluz: (projekt: Projekt | undefined) => void): void;
     zapisz(projekt: Projekt): void;

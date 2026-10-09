@@ -4,7 +4,7 @@ import type { KontekstZapisu, Wpis, ZdarzenieAktywnosci } from './modele';
 
 export type PrzebiegAnalizyWpisu = PrzebiegAnalizy<WynikDostawcyAnalizy, AnalizaWpisu>;
 export type OperacjaPrzebiegu =
-  | { rodzaj: 'rozpocznij'; id: string; wpisId: string; provider: PrzebiegAnalizyWpisu['provider']; model?: string; promptVersion?: string; supersedesAnalysisRunId?: string }
+  | { rodzaj: 'rozpocznij'; id: string; wpisId: string; provider: PrzebiegAnalizyWpisu['provider']; model?: string; promptVersion?: string; supersedesAnalysisRunId?: string; correctionId?: string; inputText?: string }
   | { rodzaj: 'blad'; id: string }
   | { rodzaj: 'preferuj'; id: string; poprzedniId: string | null };
 
@@ -34,6 +34,7 @@ export function wykonajOperacjePrzebiegu(przebiegi: PrzebiegAnalizyWpisu[], wpis
     if (operacja.supersedesAnalysisRunId && !przebiegi.some((przebieg) => przebieg.id === operacja.supersedesAnalysisRunId && przebieg.sourceId === wpis.id)) throw new Error('Poprzedni przebieg nie należy do źródła.');
     zapisy = [{ id: operacja.id, sourceId: wpis.id, sourceType: 'CAPTURE', provider: structuredClone(operacja.provider),
       model: operacja.model, promptVersion: operacja.promptVersion, supersedesAnalysisRunId: operacja.supersedesAnalysisRunId,
+      correctionId: operacja.correctionId, inputText: operacja.inputText,
       schemaVersion: 'capture-analysis-v1', status: 'RUNNING', startedAt: kontekst.czas, finishedAt: null, output: null,
       preferred: false, reviewStatus: 'NOT_STARTED', createdAt: kontekst.czas }];
     typ = 'ANALYSIS_RUN_STARTED'; tytul = 'Rozpoczęto nowy przebieg analizy';

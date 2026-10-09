@@ -34,6 +34,8 @@ interface PodstawaPrzebiegu<Poprzedni> {
   readonly createdAt: string;
   readonly migrationSource?: { readonly kind: 'INDEXEDDB_V4' | 'INDEXEDDB_V5' | 'BACKUP_V1'; readonly legacyAnalysisId: string };
   readonly supersedesAnalysisRunId?: string;
+  readonly correctionId?: string;
+  readonly inputText?: string;
   readonly zgodnoscV1?: Poprzedni;
 }
 
@@ -53,25 +55,46 @@ export interface PolecenieZmiany {
   readonly projectId?: string;
 }
 
-export interface PropozycjaZmiany {
+export interface PropozycjaZmiany<Operacja = PolecenieZmiany> {
   readonly id: string;
   readonly schemaVersion: 1;
   readonly sourceId: string;
-  readonly analysisRunId: string;
+  readonly analysisRunId?: string;
   readonly elementIds: readonly string[];
-  readonly operations: readonly PolecenieZmiany[];
+  readonly operations: readonly Operacja[];
   readonly expectedRevisions: Readonly<Record<string, string>>;
 }
 
-export interface ZestawZmian {
+export interface ZestawZmian<Operacja = PolecenieZmiany> {
   readonly id: string;
   readonly schemaVersion: 1;
   readonly proposalId: string;
   readonly reviewId: string;
   readonly reviewRevision: number;
-  readonly operations: readonly PolecenieZmiany[];
+  readonly operations: readonly Operacja[];
   readonly expectedRevisions: Readonly<Record<string, string>>;
   readonly idempotencyKey: string;
+}
+
+export type TypKorekty = 'FACT_CORRECTION' | 'PREFERENCE_CHANGE' | 'GOAL_CHANGE' | 'SCOPE_CHANGE'
+  | 'PRIORITY_CHANGE' | 'CONSTRAINT_CHANGE' | 'TECHNICAL_CONSTRAINT' | 'TEST_RESULT' | 'REJECTION' | 'OTHER';
+export interface KorektaUzytkownika {
+  readonly id: string;
+  readonly projektId: string;
+  readonly typCelu: 'PROJECT' | 'RESUME' | 'DECISION' | 'WORK_ITEM' | 'QUESTION' | 'BLOCKER' | 'CAPTURE' | 'ANALYSIS_RUN';
+  readonly celId: string;
+  readonly pole?: string;
+  readonly typ: TypKorekty;
+  readonly poprzedniaWartosc?: string;
+  readonly nowaWartosc?: string;
+  readonly opis: string;
+  readonly powod?: string;
+  readonly typZrodla: 'USER' | 'SYSTEM' | 'AI';
+  readonly odniesienieZrodla?: string;
+  readonly utworzono: string;
+  readonly utworzyl: string;
+  readonly status: 'PROPOSED' | 'APPLIED' | 'REJECTED';
+  readonly odwracaKorekteId?: string;
 }
 
 export interface KopertaZdarzeniaDomenowego<Dane = unknown, Poprzedni = unknown> {

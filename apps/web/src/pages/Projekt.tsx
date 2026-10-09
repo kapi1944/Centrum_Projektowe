@@ -38,6 +38,7 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje
     <Link to="/projekty">Wszystkie projekty</Link>
     <h1>{projekt.nazwa}</h1>
     <Link to={`/projekty/${projekt.id}/ustalenia`}>Ustalenia projektu</Link>
+    <p><Link to={`/projekty/${projekt.id}/korekty`}>Korekty i rewizje planu</Link></p>
     <p>{statusyProjektu[projekt.status]}</p>
     {projekt.zarchiwizowano && <p role="status">Projekt archiwalny od {formatujDate(projekt.zarchiwizowano)}. Dane i historia zostały zachowane.</p>}
     <p className="surowy-wpis">{projekt.opis || 'Brak opisu.'}</p>
@@ -71,7 +72,7 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje
       <p>Ostatnie 20 zdarzeń. Historia jest rejestrowana od Etapu 1.</p>
       {historia.length === 0 ? <p>Brak zarejestrowanych zdarzeń.</p> : <ol className="lista-rekordow">{historia.map((zdarzenie) => <li key={zdarzenie.id}>
         <strong>{zdarzenie.typZdarzenia === 'CAPTURE_ANALYZED' ? 'Wygenerowano analizę wpisu — wymaga weryfikacji' : zdarzenie.typZdarzenia === 'CAPTURE_REVIEWED' ? 'Zakończono weryfikację analizy wpisu' : zdarzenie.tytul}</strong>
-        <p>{formatujDate(zdarzenie.utworzono)} · {{ PROJECT: 'Projekt', CAPTURE: 'Wpis', DECISION: 'Decyzja', IMPACT: 'Wpływ', WORK_ITEM: 'Element pracy', QUESTION: 'Pytanie', BLOCKER: 'Blokada' }[zdarzenie.typEncji]} · {zdarzenie.zrodlo.nazwa} ({etykietyZrodel[zdarzenie.zrodlo.typ]})</p>
+        <p>{formatujDate(zdarzenie.utworzono)} · {{ PROJECT: 'Projekt', CAPTURE: 'Wpis', DECISION: 'Decyzja', IMPACT: 'Wpływ', WORK_ITEM: 'Element pracy', QUESTION: 'Pytanie', BLOCKER: 'Blokada', CORRECTION: 'Korekta' }[zdarzenie.typEncji]} · {zdarzenie.zrodlo.nazwa} ({etykietyZrodel[zdarzenie.zrodlo.typ]})</p>
         {zdarzenie.opis && <p className="surowy-wpis">{zdarzenie.opis}</p>}
       </li>)}</ol>}
     </section>

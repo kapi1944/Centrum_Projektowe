@@ -1,13 +1,14 @@
 import type { JednostkaPracyProjektowej, PortyTransakcji } from '../domain/porty';
+import { nazwyMagazynow, pusteDaneKopii } from '../domain/kopieZapasowe';
 
 export function utworzJednostkePracyIndexedDb(otworzBaze: () => Promise<IDBDatabase>): JednostkaPracyProjektowej {
   return {
     async wykonaj<Magazyn extends keyof PortyTransakcji, Wynik>(magazyny: readonly Magazyn[], wykonaj: (repozytoria: Pick<PortyTransakcji, Magazyn>, zakoncz: (wynik: Wynik) => void) => void): Promise<Wynik> {
-      if (!magazyny.length || magazyny.some((nazwa) => !['projekty', 'wpisy', 'zdarzenia'].includes(nazwa))) throw new Error('Nieobsługiwany zakres jednostki pracy.');
+      if (!magazyny.length || magazyny.some((nazwa) => !['projekty', 'wpisy', 'zdarzenia', 'rewizje'].includes(nazwa))) throw new Error('Nieobsługiwany zakres jednostki pracy.');
       const baza = await otworzBaze();
       try {
         return await new Promise<Wynik>((rozwiaz, odrzuc) => {
-          const transakcja = baza.transaction([...new Set(magazyny)], 'readwrite');
+          const transakcja = baza.transaction(magazyny.includes('rewizje' as Magazyn) ? nazwyMagazynow : [...new Set(magazyny)], 'readwrite');
           let wynik: Wynik;
           let bladOperacji: unknown;
           let zakonczono = false;
@@ -39,6 +40,26 @@ export function utworzJednostkePracyIndexedDb(otworzBaze: () => Promise<IDBDatab
             } catch (blad) { przerwij(blad); }
           }
           const dostepne: PortyTransakcji = {
+            rewizje: {
+              pobierz(obsluz) {
+                sprawdzOtwartosc();
+                const dane = pusteDaneKopii();
+                let pozostalo = nazwyMagazynow.length;
+                oczekujaceOdczyty++;
+                for (const nazwa of nazwyMagazynow) {
+                  const zadanie = transakcja.objectStore(nazwa).getAll();
+                  zadanie.onsuccess = () => {
+                    dane[nazwa] = zadanie.result;
+                    if (--pozostalo === 0) { oczekujaceOdczyty--; wywolaj(() => obsluz(dane)); }
+                  };
+                }
+              },
+              zapisz(magazyn, rekord, nowy) {
+                sprawdzOtwartosc();
+                if (nowy) transakcja.objectStore(magazyn).add(rekord);
+                else transakcja.objectStore(magazyn).put(rekord);
+              },
+            },
             projekty: {
               pobierz(id, obsluz) {
                 sprawdzOtwartosc();

@@ -11,11 +11,11 @@ export const etykietyFiltrowDecyzji: Record<StatusDecyzji, string> = {
   PARTIALLY_IMPLEMENTED: 'Częściowo wdrożone', IMPLEMENTED: 'Wdrożone', SUPERSEDED: 'Zastąpione', REJECTED: 'Odrzucone',
 };
 export interface PowiazanyElement {
-  typ: 'TASK' | 'WORK_ITEM' | 'PROJECT_ELEMENT' | 'BLOCKER' | 'DOCUMENT';
+  typ: 'TASK' | 'WORK_ITEM' | 'PROJECT_ELEMENT' | 'BLOCKER' | 'DOCUMENT' | 'QUESTION' | 'ANALYSIS_RUN';
   id: string;
   tytul: string;
 }
-export const typyElementow = { TASK: 'Zadanie', WORK_ITEM: 'Element pracy', PROJECT_ELEMENT: 'Element projektu', BLOCKER: 'Bloker', DOCUMENT: 'Dokumentacja' } as const;
+export const typyElementow = { TASK: 'Zadanie', WORK_ITEM: 'Element pracy', PROJECT_ELEMENT: 'Element projektu', BLOCKER: 'Bloker', DOCUMENT: 'Dokumentacja', QUESTION: 'Pytanie', ANALYSIS_RUN: 'Przebieg analizy' } as const;
 export interface DaneDecyzji {
   tytul: string;
   opis: string;
@@ -38,7 +38,7 @@ export interface Decyzja extends DaneDecyzji {
   wersja: number;
   zastapionaPrzezId: string | null;
 }
-export type ZrodloWplywu = { typ: 'CAPTURE' | 'DECISION'; id: string };
+export type ZrodloWplywu = { typ: 'CAPTURE' | 'DECISION' | 'CORRECTION'; id: string };
 interface PodstawaPropozycji {
   id: string;
   tytul: string;
@@ -63,7 +63,7 @@ export type OperacjaUstalen =
   | { rodzaj: 'utworz'; id: string; dane: DaneDecyzji }
   | { rodzaj: 'status'; id: string; status: Exclude<StatusDecyzji, 'SUPERSEDED'>; wersja: number }
   | { rodzaj: 'zastap'; id: string; wersja: number; noweId: string; dane: DaneDecyzji }
-  | { rodzaj: 'analizuj'; zrodlo: ZrodloWplywu; kontekstAnalizyWpisu?: { analizaWpisuId: string; elementAnalizyId: string; tresc: string; projektId: string } }
+  | { rodzaj: 'analizuj'; zrodlo: ZrodloWplywu; projektIdsKorekty?: string[]; kontekstAnalizyWpisu?: { analizaWpisuId: string; elementAnalizyId: string; tresc: string; projektId: string } }
   | { rodzaj: 'rozstrzygnij'; analizaId: string; propozycjaId: string; zatwierdz: boolean };
 export interface StanUstalen {
   projekty: Projekt[];
@@ -153,6 +153,10 @@ export function wykonajOperacjeUstalen(stan: StanUstalen, operacja: OperacjaUsta
         if (!wpis) throw new Error('Wpis nie istnieje.');
         const projektId = wpis.projektId ?? operacja.kontekstAnalizyWpisu?.projektId;
         projektIds = projektId ? [projektId] : [];
+      } else if (operacja.zrodlo.typ === 'CORRECTION') {
+        projektIds = operacja.projektIdsKorekty ?? [];
+        if (!projektIds.length) throw new Error('Korekta wymaga projektu.');
+        projektIds.forEach(projekt);
       } else projektIds = decyzja(operacja.zrodlo.id).projektIds;
       const id = `wplyw-${kontekst.idZdarzenia}`;
       const propozycje: PropozycjaWplywu[] = [];

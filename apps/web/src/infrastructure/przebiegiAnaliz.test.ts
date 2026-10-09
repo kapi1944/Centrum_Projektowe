@@ -76,19 +76,20 @@ async function generuj(repozytorium: ReturnType<typeof utworzRepozytoriumIndexed
 }
 
 describe('Wersjonowane przebiegi analiz', () => {
-  it('migruje v5 → v6 bez zmiany review, źródła, historii i provenance decyzji oraz realizacji', async () => {
+  it('migruje v5 → v7 bez zmiany review, źródła, historii i provenance decyzji oraz realizacji', async () => {
     const nazwaBazy = crypto.randomUUID(); const kopia = staraKopia();
     await zapiszV5(nazwaBazy, kopia);
     const repozytorium = utworzRepozytoriumIndexedDb(nazwaBazy);
     const nowa = await repozytorium.eksportujKopie();
-    const { przebiegiAnaliz, ...dawne } = nowa.data;
+    const { przebiegiAnaliz } = nowa.data;
+    const dawne = Object.fromEntries(Object.entries(nowa.data).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa)));
     expect(dawne).toEqual(kopia.data);
     expect(przebiegiAnaliz).toEqual([expect.objectContaining({ id: 'a1', sourceId: 'w1', sourceType: 'CAPTURE', status: 'LEGACY_IMPORTED',
       reviewStatus: 'APPLIED', startedAt: null, finishedAt: null, preferred: true, createdAt: czas,
       migrationSource: { kind: 'INDEXEDDB_V5', legacyAnalysisId: 'a1' } })]);
     expect(przebiegiAnaliz[0]).not.toHaveProperty('model'); expect(przebiegiAnaliz[0]).not.toHaveProperty('promptVersion');
     expect(przebiegiAnaliz[0].output?.elementy[0].tresc).toBe('Oryginalna decyzja');
-    expect(await sprawdzSchemat(nazwaBazy, 6)).toMatchObject({ wersja: 6, unikalnyWpis: false, indeksZrodla: false });
+    expect(await sprawdzSchemat(nazwaBazy, 7)).toMatchObject({ wersja: 7, unikalnyWpis: false, indeksZrodla: false });
     expect((await utworzRepozytoriumIndexedDb(nazwaBazy).eksportujKopie()).data).toEqual(nowa.data);
   });
 
@@ -139,15 +140,16 @@ describe('Wersjonowane przebiegi analiz', () => {
     expect(nowa.data.przebiegiAnaliz).toHaveLength(1);
   });
 
-  it('przechodzi round-trip backup v1 → import/migracja → eksport v2 → ponowny import', async () => {
+  it('przechodzi round-trip backup v1 → import/migracja → eksport v3 → ponowny import', async () => {
     const kopia = staraKopia(); expect(() => sprawdzKopie(kopia)).not.toThrow();
     const repozytorium = utworzRepozytoriumIndexedDb(crypto.randomUUID());
     await repozytorium.importujKopie(JSON.parse(JSON.stringify(kopia)), 'zastap', true);
     const nowa = odczytajKopie(JSON.stringify(await repozytorium.eksportujKopie()));
-    expect(nowa.schemaVersion).toBe(2);
-    if (nowa.schemaVersion !== 2) throw new Error('Eksporter musi zapisać format v2.');
+    expect(nowa.schemaVersion).toBe(3);
+    if (nowa.schemaVersion !== 3) throw new Error('Eksporter musi zapisać format v3.');
     expect(nowa.data.przebiegiAnaliz[0].migrationSource?.kind).toBe('BACKUP_V1');
-    const { przebiegiAnaliz, ...zachowane } = nowa.data;
+    const { przebiegiAnaliz } = nowa.data;
+    const zachowane = Object.fromEntries(Object.entries(nowa.data).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa)));
     expect(zachowane).toEqual(kopia.data); expect(przebiegiAnaliz[0].reviewStatus).toBe('APPLIED');
     await generuj(repozytorium, 'a2');
     const zWieloma = odczytajKopie(JSON.stringify(await repozytorium.eksportujKopie()));
