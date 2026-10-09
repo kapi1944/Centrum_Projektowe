@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import type { DaneProjektu, KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci, ZmianaProjektu } from '../../domain/modele';
 import type { AkcjaWpisu } from '../../domain/modele';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen } from '../../domain/ustalenia';
-import { sprawdzDaneProjektu, utworzProjekt, utworzWpis } from '../../domain/operacje';
+import { sprawdzDaneProjektu, utworzProjekt } from '../../domain/operacje';
+import { aktualizujPunktPowrotu, utworzWpisUzytkownika } from '../../application/przypadkiUzycia';
 import type { RepozytoriumProjektowe } from '../../domain/repozytorium';
 import type { AnalizaWpisu, AnalysisProvider, OperacjaAnalizyWpisu } from '../../domain/analizaWpisu';
 import type { WynikUstalen } from '../../domain/ustalenia';
@@ -58,15 +59,17 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
   }
 
   async function zmienProjekt(id: string, zmiana: ZmianaProjektu) {
-    const wynik = await repozytorium.zmienProjekt(id, zmiana, utworzKontekst());
+    const kontekst = utworzKontekst();
+    const wynik = zmiana.rodzaj === 'punktPowrotu'
+      ? await aktualizujPunktPowrotu(repozytorium.jednostkaPracy, id, zmiana.dane, kontekst)
+      : await repozytorium.zmienProjekt(id, zmiana, kontekst);
     ustawProjekty((poprzednie) => poprzednie.map((projekt) => projekt.id === id ? wynik.projekt : projekt));
     ustawZdarzenia((poprzednie) => [...poprzednie, wynik.zdarzenie]);
   }
 
   async function dodajWpis(tresc: string, projektId: string | null) {
     const kontekst = utworzKontekst();
-    const wpis = utworzWpis(tresc, projektId, crypto.randomUUID(), kontekst.czas, kontekst.zrodlo);
-    const zdarzenie = await repozytorium.dodajWpis(wpis, kontekst);
+    const { wpis, zdarzenie } = await utworzWpisUzytkownika(repozytorium.jednostkaPracy, { id: crypto.randomUUID(), tresc, projektId }, kontekst);
     ustawWpisy((poprzednie) => [...poprzednie, wpis]);
     ustawZdarzenia((poprzednie) => [...poprzednie, zdarzenie]);
     ustawProjekty((poprzednie) => poprzednie.map((projekt) => projekt.id === projektId

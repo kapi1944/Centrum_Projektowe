@@ -29,7 +29,7 @@ Komendy uruchamiaj z katalogu głównego repozytorium. Jeden `package-lock.json`
 
 `apps/web` zawiera całą dotychczasową aplikację, domenę, IndexedDB i 97 istniejących testów. `apps/hub` udostępnia tylko `GET /health`: `status`, `version`, `timestamp`. Web nie łączy się z Hubem. Brak bazy, synchronizacji, plików i autoryzacji Hubu.
 
-`packages/contracts` i `packages/integration-sdk` zawierają wyłącznie typy wspólne i porty z ADR 0006, bez adapterów. `packages/domain`, `packages/ui` i `packages/testing` są zarezerwowanymi workspaces bez kodu. Root przekazuje kontrole do workspaces ze zdefiniowanymi skryptami; puste pakiety nie mają pozornych buildów ani testów. Dokumentacja struktury i regresji: [migracja workspace](docs/v2/WORKSPACE_MIGRATION.md), [fundament UI](docs/ui/README.md).
+`packages/contracts` i `packages/integration-sdk` zawierają wyłącznie typy wspólne i porty z ADR 0006, bez adapterów. `packages/domain` zawiera deklaracje modeli 2.0 i UnitOfWork; `packages/ui` i `packages/testing` pozostają zarezerwowanymi workspaces bez kodu. Root przekazuje kontrole do workspaces ze zdefiniowanymi skryptami; puste pakiety nie mają pozornych buildów ani testów. Dokumentacja: [migracja workspace](docs/v2/WORKSPACE_MIGRATION.md), [fundament domeny](docs/v2/DOMAIN_FOUNDATION.md), [fundament UI](docs/ui/README.md).
 
 Reorganizacja nie zmienia nazwy bazy, jej wersji, formatu backupu ani originu web. Zachowaj dotychczasowy protokół, host i port: inny origin oznacza inną bazę przeglądarki.
 

@@ -3,6 +3,7 @@ import { BladKonfliktow, nazwyMagazynow, odczytajKopie, pusteDaneKopii, sprawdzK
 import { utworzProjekt, utworzWpis } from '../domain/operacje';
 import { utworzRepozytoriumIndexedDb } from './repozytoriumIndexedDb';
 import { RuleBasedAnalysisProvider } from './RuleBasedAnalysisProvider';
+import { kopiaDoWidokuV2, widokDoKopiiV1 } from './zgodnoscV1V2';
 
 function kontekst() {
   return { idZdarzenia: crypto.randomUUID(), czas: '2026-10-08T12:00:00Z', zrodlo: { typ: 'USER' as const, nazwa: 'Użytkownik' } };
@@ -28,6 +29,20 @@ async function przygotuj() {
 }
 
 describe('Kopie zapasowe', () => {
+  it('adapter v1 ↔ v2 zachowuje pełne 11 magazynów, provenance i import schemaVersion 1', async () => {
+    const { kopia } = await przygotuj();
+    const widok = kopiaDoWidokuV2(kopia);
+    expect(widok.przebiegi[0].zgodnoscV1).toEqual(kopia.data.analizyWpisow[0]);
+    const odtworzona = widokDoKopiiV1(JSON.parse(JSON.stringify(widok)));
+    expect(odtworzona).toEqual(kopia);
+    expect(() => sprawdzKopie(odtworzona)).not.toThrow();
+    const repozytorium = utworzRepozytoriumIndexedDb(crypto.randomUUID());
+    await repozytorium.importujKopie(odtworzona, 'zastap', true);
+    expect((await repozytorium.eksportujKopie()).data).toEqual(kopia.data);
+    widok.zrodla.pop();
+    expect(() => widokDoKopiiV1(widok)).toThrow('bezstratnego');
+    expect(() => kopiaDoWidokuV2({ ...kopia, schemaVersion: 2 })).toThrow();
+  });
   it('eksportuje spójny obraz wszystkich 11 magazynów i odtwarza oryginały, historię oraz relacje', async () => {
     const { kopia } = await przygotuj();
     expect(nazwyMagazynow).toHaveLength(11);

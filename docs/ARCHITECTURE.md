@@ -20,7 +20,9 @@ apps/web/src/
   shared/          style i formatowanie dat
 ```
 
-Po reorganizacji npm workspaces aplikacja web zachowuje ten podział bez zmian domeny. `apps/hub` zawiera wyłącznie niezależny health check. Typy współdzielone i porty integracji są w `packages/contracts` i `packages/integration-sdk`; pakiety `domain`, `ui`, `testing` są miejscami przyszłej migracji bez implementacji. Szczegóły i wyniki regresji: [migracja workspace](v2/WORKSPACE_MIGRATION.md).
+Po reorganizacji npm workspaces aplikacja web zachowuje ten podział. `apps/hub` zawiera wyłącznie niezależny health check. Typy współdzielone i porty integracji są w `packages/contracts` i `packages/integration-sdk`. `packages/domain` zawiera deklaracje modeli 2.0 i UnitOfWork; `ui`, `testing` pozostają miejscami przyszłej migracji. Szczegóły: [migracja workspace](v2/WORKSPACE_MIGRATION.md), [fundament domeny](v2/DOMAIN_FOUNDATION.md).
+
+`apps/web/src/application/przypadkiUzycia.ts` koordynuje tworzenie wpisu i zmianę punktu powrotu przez UnitOfWork; UI aktualizuje projekcję dopiero po commit. W `domain/porty.ts` wydzielono sześć portów, których kompozycją pozostaje kompatybilna fasada `RepozytoriumProjektowe`. Tylko dwa workflow korzystają z węższych transakcji; pozostałe operacje zachowują dotychczasowy mechanizm. Adapter zgodności mapuje v1 do widoków v2 w pamięci, bez nowych magazynów i bez zmiany formatu kopii.
 
 Domena nie importuje Reacta, IndexedDB ani API przeglądarki. Otrzymuje identyfikatory, czas i kontekst zapisu przez argumenty. `analizaWpisu.ts` przechowuje model analizy oraz reguły jej cyklu życia i zastosowania. Przy tworzeniu decyzji i wpływu wywołuje istniejącą `wykonajOperacjeUstalen`; kolejne decyzje w jednym zastosowaniu widzą już wcześniejsze numery `DEC-XXXX`. Nie ma drugiego silnika `Decision` ani `Impact`.
 

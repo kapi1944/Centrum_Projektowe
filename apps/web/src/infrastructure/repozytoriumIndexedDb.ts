@@ -1,11 +1,13 @@
 import { nazwyMagazynow, pusteDaneKopii, sprawdzKopie, sprawdzDaneKopii, polaczDane, type DaneKopii } from '../domain/kopieZapasowe';
 import daneAplikacji from '../../package.json';
-import type { KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci } from '../domain/modele';
+import type { Projekt, Wpis, ZdarzenieAktywnosci } from '../domain/modele';
 import { przygotujAkcjeWpisu, utworzProjekt, utworzWpis, zdarzenieUtworzenia, zmienProjekt } from '../domain/operacje';
 import type { RepozytoriumProjektowe } from '../domain/repozytorium';
 import { wykonajOperacjeUstalen, type AnalizaWplywu, type Decyzja, type StanUstalen } from '../domain/ustalenia';
 import { wykonajAnalizeWpisu, type AnalizaWpisu } from '../domain/analizaWpisu';
 import { wykonajRealizacje, type StanRealizacji } from '../domain/realizacja';
+import { utworzJednostkePracyIndexedDb } from './jednostkaPracyIndexedDb';
+import { aktualizujPunktPowrotu, zapiszNowyWpis } from '../application/przypadkiUzycia';
 
 export function utworzRepozytoriumIndexedDb(
   nazwaBazy = 'centrum-projektowe',
@@ -153,7 +155,9 @@ export function utworzRepozytoriumIndexedDb(
     }
   }
 
+  const jednostkaPracy = utworzJednostkePracyIndexedDb(otworzBaze);
   return {
+    jednostkaPracy,
     eksportujKopie: async () => {
       const baza = await otworzBaze();
       try {
@@ -284,31 +288,18 @@ export function utworzRepozytoriumIndexedDb(
       transakcja.objectStore('zdarzenia').add(zdarzenie);
       zakoncz(zdarzenie);
     }),
-    zmienProjekt: (id, zmiana, kontekst) => zapisz((transakcja, zakoncz, odczytajProjekt) => {
-      odczytajProjekt(id, (projekt) => {
-        const wynik = zmienProjekt(projekt, zmiana, kontekst);
-        transakcja.objectStore('projekty').put(wynik.projekt);
-        transakcja.objectStore('zdarzenia').add(wynik.zdarzenie);
-        zakoncz(wynik);
-      });
-    }),
-    pobierzWpisy: () => pobierzWszystkie<Wpis>('wpisy'),
-    dodajWpis: (wpis, kontekst: KontekstZapisu) => zapisz<ZdarzenieAktywnosci>((transakcja, zakoncz, odczytajProjekt) => {
-      const zdarzenie = zdarzenieUtworzenia(wpis, kontekst);
-      function dodaj() {
-        transakcja.objectStore('wpisy').add(wpis);
-        transakcja.objectStore('zdarzenia').add(zdarzenie);
-        zakoncz(zdarzenie);
-      }
-      if (wpis.projektId === null) dodaj();
-      else odczytajProjekt(wpis.projektId, (projekt) => {
-        if (projekt.zarchiwizowano) throw new Error('Projekt jest zarchiwizowany.');
-        transakcja.objectStore('projekty').put({
-          ...projekt, ostatniaAktywnosc: kontekst.czas > projekt.ostatniaAktywnosc ? kontekst.czas : projekt.ostatniaAktywnosc,
+    zmienProjekt: (id, zmiana, kontekst) => zmiana.rodzaj === 'punktPowrotu'
+      ? aktualizujPunktPowrotu(jednostkaPracy, id, zmiana.dane, kontekst)
+      : zapisz((transakcja, zakoncz, odczytajProjekt) => {
+        odczytajProjekt(id, (projekt) => {
+          const wynik = zmienProjekt(projekt, zmiana, kontekst);
+          transakcja.objectStore('projekty').put(wynik.projekt);
+          transakcja.objectStore('zdarzenia').add(wynik.zdarzenie);
+          zakoncz(wynik);
         });
-        dodaj();
-      });
-    }),
+      }),
+    pobierzWpisy: () => pobierzWszystkie<Wpis>('wpisy'),
+    dodajWpis: (wpis, kontekst) => zapiszNowyWpis(jednostkaPracy, wpis, kontekst),
     pobierzZdarzenia: () => pobierzWszystkie<ZdarzenieAktywnosci>('zdarzenia'),
     wykonajAkcjeWpisu: (id, akcja, kontekst) => zapisz((transakcja, zakoncz, odczytajProjekt, przerwij) => {
       const zadanie = transakcja.objectStore('wpisy').get(id);
