@@ -1,7 +1,8 @@
 import type { KopertaZdarzeniaDomenowego, PrzebiegAnalizy, RekordZrodlowy } from '@centrum-projektowe/domain';
 import type { Wpis, ZdarzenieAktywnosci } from '../domain/modele';
 import type { AnalizaWpisu, WynikDostawcyAnalizy } from '../domain/analizaWpisu';
-import { schematDanych, sprawdzKopie, type KopiaZapasowa } from '../domain/kopieZapasowe';
+import { schematDanych, sprawdzKopie, type KopiaZapasowaV1 } from '../domain/kopieZapasowe';
+import { migrujAnalize } from '../domain/przebiegiAnaliz';
 
 type ZrodloV2 = RekordZrodlowy<Wpis>;
 type AnalizaV2 = PrzebiegAnalizy<WynikDostawcyAnalizy, AnalizaWpisu>;
@@ -37,14 +38,7 @@ export function zrodloDoWpisu(zrodlo: ZrodloV2): Wpis {
 export function analizaDoPrzebiegu(analiza: AnalizaWpisu): AnalizaV2 {
   if (!schematDanych.analizyWpisow.sprawdz(analiza)) throw new Error('Niepoprawna analiza v1.');
   const poprzednia = structuredClone(analiza);
-  const { typDostawcy, nazwaDostawcy, wersjaDostawcy, wersjaAnalizy, klasyfikacja, podsumowanie } = poprzednia;
-  const wynik: WynikDostawcyAnalizy = { typDostawcy, nazwaDostawcy, wersjaDostawcy, wersjaAnalizy, klasyfikacja, podsumowanie,
-    elementy: poprzednia.elementy.map(({ typ, tresc, pewnosc, zrodlo }) => ({ typ, tresc, pewnosc, zrodlo })) };
-  return {
-    id: poprzednia.id, sourceId: poprzednia.wpisId,
-    provider: { type: typDostawcy, name: nazwaDostawcy, version: wersjaDostawcy }, schemaVersion: 'capture-analysis-v1',
-    startedAt: null, finishedAt: null, status: 'LEGACY_IMPORTED', output: wynik, zgodnoscV1: poprzednia,
-  };
+  return { ...migrujAnalize(poprzednia, 'BACKUP_V1'), zgodnoscV1: poprzednia };
 }
 
 export function przebiegDoAnalizy(przebieg: AnalizaV2): AnalizaWpisu {
@@ -75,17 +69,18 @@ export interface WidokKopiiV2 {
   zrodla: ZrodloV2[];
   przebiegi: AnalizaV2[];
   zdarzenia: ZdarzenieV2[];
-  zgodnoscV1: KopiaZapasowa;
+  zgodnoscV1: KopiaZapasowaV1;
 }
 
 export function kopiaDoWidokuV2(kopia: unknown): WidokKopiiV2 {
   sprawdzKopie(kopia);
+  if (kopia.schemaVersion !== 1) throw new Error('Adapter widoku v1 wymaga kopii schemaVersion 1; nie spłaszcza przebiegów v2.');
   const poprzednia = structuredClone(kopia);
   return { contractVersion: 1, zrodla: poprzednia.data.wpisy.map(wpisDoZrodla),
     przebiegi: poprzednia.data.analizyWpisow.map(analizaDoPrzebiegu), zdarzenia: poprzednia.data.zdarzenia.map(zdarzenieDoKoperty), zgodnoscV1: poprzednia };
 }
 
-export function widokDoKopiiV1(widok: WidokKopiiV2): KopiaZapasowa {
+export function widokDoKopiiV1(widok: WidokKopiiV2): KopiaZapasowaV1 {
   if (!porownaj(widok, kopiaDoWidokuV2(widok.zgodnoscV1))) throw new Error('Widok v2 nie ma bezstratnego odpowiednika kopii v1.');
   return structuredClone(widok.zgodnoscV1);
 }

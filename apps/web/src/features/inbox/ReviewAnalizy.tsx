@@ -5,10 +5,11 @@ import { etykietyZrodel, type Projekt, type Wpis } from '../../domain/modele';
 import type { OperacjaRealizacji, StanRealizacji } from '../../domain/realizacja';
 import { KonwersjaAnalizy } from '../realizacja/KonwersjaAnalizy';
 import { formatujDate } from '../../shared/formatujDate';
+import type { PrzebiegAnalizyWpisu } from '../../domain/przebiegiAnaliz';
 
-export function ReviewAnalizy({ wpis, analiza, projekty, analizuj, wykonaj, realizacja, wykonajRealizacje }: {
+export function ReviewAnalizy({ wpis, analizy, przebiegi, preferuj, projekty, analizuj, wykonaj, realizacja, wykonajRealizacje }: {
   realizacja: StanRealizacji; wykonajRealizacje: (operacja: OperacjaRealizacji) => Promise<void>;
-  wpis: Wpis; analiza?: AnalizaWpisu; projekty: Projekt[];
+  wpis: Wpis; analizy: AnalizaWpisu[]; przebiegi: PrzebiegAnalizyWpisu[]; preferuj: (id: string) => Promise<void>; projekty: Projekt[];
   analizuj: (wpisId: string) => Promise<void>;
   wykonaj: (operacja: OperacjaAnalizyWpisu) => Promise<void>;
 }) {
@@ -18,6 +19,12 @@ export function ReviewAnalizy({ wpis, analiza, projekty, analizuj, wykonaj, real
   const [edytowanyId, ustawEdytowanyId] = useState<string | null>(null);
   const [tresc, ustawTresc] = useState('');
   const [projektId, ustawProjektId] = useState('');
+  const [wybranyId, ustawWybranyId] = useState<string | null>(null);
+  const historia = [...przebiegi].sort((pierwszy, drugi) => pierwszy.createdAt.localeCompare(drugi.createdAt) || pierwszy.id.localeCompare(drugi.id));
+  const aktualny = historia.find((przebieg) => przebieg.preferred);
+  const wybrany = historia.find((przebieg) => przebieg.id === wybranyId) ?? aktualny ?? historia.at(-1);
+  const analiza = analizy.find((analiza) => analiza.id === wybrany?.id);
+  const etykietyPrzebiegu = { RUNNING: 'W trakcie analizy', SUCCEEDED: 'Zakończona', FAILED: 'Błąd analizy', CANCELLED: 'Anulowana', LEGACY_IMPORTED: 'Zachowana z poprzedniej wersji' };
   async function zapisz(operacja: () => Promise<void>) {
     if (blokada.current) return;
     blokada.current = true;
@@ -30,7 +37,15 @@ export function ReviewAnalizy({ wpis, analiza, projekty, analizuj, wykonaj, real
   const zatwierdzone = analiza?.elementy.filter((element) => element.statusReview === 'ACCEPTED' || element.statusReview === 'EDITED') ?? [];
   const wymagaProjektu = zatwierdzone.some((element) => element.typ === 'POSSIBLE_DECISION' || element.typ === 'IMPACT_CANDIDATE');
   return <section aria-label="Analiza wpisu i weryfikacja">
-    {!analiza && wpis.status === 'UNPROCESSED' && <button disabled={zapisywanie} onClick={() => void zapisz(() => analizuj(wpis.id))}>Analizuj</button>}
+    {wpis.status !== 'DISMISSED' && <button disabled={zapisywanie} onClick={() => void zapisz(() => analizuj(wpis.id))}>{historia.length ? 'Uruchom ponownie analizę' : 'Analizuj'}</button>}
+    {!!historia.length && <section aria-label="Historia analiz">
+      <h4>Historia analiz</h4>
+      <ol>{historia.map((przebieg, numer) => <li key={przebieg.id}>
+        <button disabled={zapisywanie} aria-pressed={wybrany?.id === przebieg.id} onClick={() => { ustawWybranyId(przebieg.id); ustawEdytowanyId(null); ustawProjektId(''); }}>Analiza {numer + 1}</button>
+        {' · '}{etykietyPrzebiegu[przebieg.status]}{przebieg.preferred && ' · Aktualna'}
+        {!przebieg.preferred && ['SUCCEEDED', 'LEGACY_IMPORTED'].includes(przebieg.status) && <button disabled={zapisywanie || wpis.status === 'DISMISSED'} onClick={() => void zapisz(() => preferuj(przebieg.id))}>Ustaw jako aktualną</button>}
+      </li>)}</ol>
+    </section>}
     {analiza && <>
       <h3>Analiza wpisu</h3>
       <p>ORYGINAŁ ≠ ANALIZA ≠ DECYZJA. Akceptacja założenia zachowuje założenie, nie potwierdza faktu.</p>

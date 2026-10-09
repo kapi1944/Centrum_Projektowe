@@ -1,6 +1,7 @@
 import type { AnalysisProvider, PropozycjaAnalizy, WynikDostawcyAnalizy } from '../domain/analizaWpisu';
 
 export class RuleBasedAnalysisProvider implements AnalysisProvider {
+  readonly pochodzenie = { type: 'RULE_BASED' as const, name: 'Reguły jawnych zwrotów', version: '1' };
   async analizuj(trescOryginalna: string): Promise<WynikDostawcyAnalizy> {
     const elementy: PropozycjaAnalizy[] = [];
     const zdania = trescOryginalna.match(/[^.!?\n]+[.!?]*/gu) ?? [];

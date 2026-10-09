@@ -6,13 +6,18 @@ import { typyAnalizy, etykietyReview, etykietyStatusowAnalizy, etykietyDostawcow
 import type { AnalizaWpisu } from './analizaWpisu';
 import { statusyObszaru, statusyEtapu, statusyPracy, typyPracy, priorytetyPracy, statusyPytania, statusyBlokady, wagiBlokady } from './realizacja';
 import type { StanRealizacji } from './realizacja';
+import { migrujAnalize, type PrzebiegAnalizyWpisu } from './przebiegiAnaliz';
 
 export interface DaneKopii extends StanRealizacji {
   projekty: Projekt[]; wpisy: Wpis[]; zdarzenia: ZdarzenieAktywnosci[];
   decyzje: Decyzja[]; analizyWplywu: AnalizaWplywu[]; analizyWpisow: AnalizaWpisu[];
+  przebiegiAnaliz: PrzebiegAnalizyWpisu[];
 }
 export interface KopiaZapasowa {
-  format: 'centrum-projektowe'; schemaVersion: 1; appVersion: string; exportedAt: string; data: DaneKopii;
+  format: 'centrum-projektowe'; schemaVersion: 2; appVersion: string; exportedAt: string; data: DaneKopii;
+}
+export interface KopiaZapasowaV1 extends Omit<KopiaZapasowa, 'schemaVersion' | 'data'> {
+  schemaVersion: 1; data: Omit<DaneKopii, 'przebiegiAnaliz'>;
 }
 export type TrybImportu = 'polacz' | 'zastap';
 
@@ -56,7 +61,7 @@ export const schematDanych = {
     status: etykiety(etykietyStatusowWpisu), typZrodla: wybor(['MANUAL', 'IMPORT', 'OTHER']), zrodlo, odlozonoDoAnalizy: opcjonalne(lubNull(data)) }) },
   zdarzenia: { etykieta: 'Zdarzeń historii', sprawdz: obiekt({ ...podstawa, projektId: lubNull(identyfikator), projektIds: opcjonalne(lista(identyfikator)),
     encjaId: lubNull(identyfikator), typEncji: wybor(['PROJECT', 'CAPTURE', 'DECISION', 'IMPACT', 'WORK_ITEM', 'QUESTION', 'BLOCKER']),
-    typZdarzenia: wybor(['PROJECT_CREATED', 'PROJECT_UPDATED', 'PROJECT_ARCHIVED', 'PROJECT_RESUME_UPDATED', 'CAPTURE_CREATED', 'CAPTURE_ASSIGNED', 'CAPTURE_DEFERRED', 'CAPTURE_DISMISSED', 'CAPTURE_ANALYZED', 'CAPTURE_REVIEWED', 'CAPTURE_ANALYSIS_APPLIED', 'DECISION_CREATED', 'DECISION_STATUS_CHANGED', 'DECISION_SUPERSEDED', 'IMPACT_ANALYZED', 'IMPACT_APPROVED', 'IMPACT_REJECTED', 'WORK_ITEM_CREATED', 'WORK_ITEM_COMPLETED', 'QUESTION_RESOLVED', 'BLOCKER_CREATED', 'BLOCKER_RESOLVED']),
+    typZdarzenia: wybor(['PROJECT_CREATED', 'PROJECT_UPDATED', 'PROJECT_ARCHIVED', 'PROJECT_RESUME_UPDATED', 'CAPTURE_CREATED', 'CAPTURE_ASSIGNED', 'CAPTURE_DEFERRED', 'CAPTURE_DISMISSED', 'CAPTURE_ANALYZED', 'CAPTURE_REVIEWED', 'CAPTURE_ANALYSIS_APPLIED', 'ANALYSIS_RUN_STARTED', 'ANALYSIS_RUN_FAILED', 'ANALYSIS_PREFERRED_CHANGED', 'DECISION_CREATED', 'DECISION_STATUS_CHANGED', 'DECISION_SUPERSEDED', 'IMPACT_ANALYZED', 'IMPACT_APPROVED', 'IMPACT_REJECTED', 'WORK_ITEM_CREATED', 'WORK_ITEM_COMPLETED', 'QUESTION_RESOLVED', 'BLOCKER_CREATED', 'BLOCKER_RESOLVED']),
     tytul: tekst, opis: opcjonalne(tekst), zrodlo, metadane: opcjonalne((wartosc) => obiekt({})(wartosc) && metadane(wartosc)) }) },
   decyzje: { etykieta: 'Decyzji', sprawdz: obiekt({ ...aktualizacja, czytelneId: (wartosc) => tekst(wartosc) && /^DEC-\d+$/.test(wartosc as string),
     tytul: tekst, opis: tekst, projektIds: (wartosc) => lista(identyfikator)(wartosc) && (wartosc as string[]).length > 0,
@@ -78,6 +83,22 @@ export const schematDanych = {
     status: etykiety(statusyPracy), priorytet: opcjonalne(etykiety(priorytetyPracy)), decyzjaIds: lista(identyfikator), zakonczono: opcjonalne(data), pochodzenie: opcjonalne(pochodzenie) }) },
   pytania: { etykieta: 'Pytań', sprawdz: obiekt({ ...aktualizacja, ...polozenie, pytanie: tekst, kontekst: tekst, status: etykiety(statusyPytania), odpowiedz: opcjonalne(tekst), rozstrzygnieto: opcjonalne(data), pochodzenie: opcjonalne(pochodzenie) }) },
   blokady: { etykieta: 'Blokad', sprawdz: obiekt({ ...aktualizacja, ...polozenie, tytul: tekst, opis: tekst, status: etykiety(statusyBlokady), waga: etykiety(wagiBlokady), rozstrzygnieto: opcjonalne(data) }) },
+  przebiegiAnaliz: { etykieta: 'Przebiegów analiz', sprawdz: (wartosc: unknown) => {
+    if (!obiekt({ id: identyfikator, sourceId: identyfikator, sourceType: wybor(['CAPTURE']),
+      provider: obiekt({ type: etykiety(etykietyDostawcowAnalizy), name: opcjonalne(tekst), version: opcjonalne(tekst) }),
+      model: opcjonalne(tekst), promptVersion: opcjonalne(tekst), schemaVersion: wybor(['capture-analysis-v1']),
+      preferred: (wartosc) => typeof wartosc === 'boolean', reviewStatus: wybor(['NOT_STARTED', 'GENERATED', 'IN_REVIEW', 'REVIEWED', 'APPLIED']),
+      createdAt: data, supersedesAnalysisRunId: opcjonalne(identyfikator),
+      migrationSource: opcjonalne(obiekt({ kind: wybor(['INDEXEDDB_V4', 'INDEXEDDB_V5', 'BACKUP_V1']), legacyAnalysisId: identyfikator })) })(wartosc)) return false;
+    const przebieg = wartosc as PrzebiegAnalizyWpisu;
+    if (przebieg.status === 'LEGACY_IMPORTED') return przebieg.startedAt === null && przebieg.finishedAt === null
+      && przebieg.output !== null && przebieg.migrationSource?.legacyAnalysisId === przebieg.id;
+    if (przebieg.migrationSource !== undefined || !data(przebieg.startedAt)) return false;
+    if (przebieg.status === 'RUNNING') return przebieg.finishedAt === null && przebieg.output === null && !przebieg.preferred && przebieg.reviewStatus === 'NOT_STARTED';
+    if (!data(przebieg.finishedAt) || Date.parse(przebieg.finishedAt!) < Date.parse(przebieg.startedAt!)) return false;
+    if (przebieg.status === 'SUCCEEDED') return przebieg.output !== null && przebieg.reviewStatus !== 'NOT_STARTED';
+    return ['FAILED', 'CANCELLED'].includes(przebieg.status) && przebieg.output === null && !przebieg.preferred && przebieg.reviewStatus === 'NOT_STARTED';
+  } },
 } satisfies Record<keyof DaneKopii, { etykieta: string; sprawdz: Walidator }>;
 export const nazwyMagazynow = Object.keys(schematDanych) as (keyof DaneKopii)[];
 export function pusteDaneKopii(): DaneKopii {
@@ -85,19 +106,23 @@ export function pusteDaneKopii(): DaneKopii {
 }
 
 export function sprawdzDaneKopii(wartosc: unknown): asserts wartosc is DaneKopii {
+  sprawdzDane(wartosc, 2);
+}
+function sprawdzDane(wartosc: unknown, wersjaKopii: 1 | 2) {
   if (!obiekt({})(wartosc)) throw new Error('Niepoprawna struktura danych kopii.');
   const dane = wartosc as DaneKopii;
-  if (Object.keys(dane).some((nazwa) => !Object.hasOwn(schematDanych, nazwa))) throw new Error('Kopia zawiera nieobsługiwany magazyn.');
-  for (const nazwa of nazwyMagazynow) {
+  const magazyny = wersjaKopii === 1 ? nazwyMagazynow.filter((nazwa) => nazwa !== 'przebiegiAnaliz') : nazwyMagazynow;
+  if (Object.keys(dane).some((nazwa) => !magazyny.includes(nazwa as keyof DaneKopii))) throw new Error('Kopia zawiera nieobsługiwany magazyn.');
+  for (const nazwa of magazyny) {
     if (!lista(schematDanych[nazwa].sprawdz)(dane[nazwa])) throw new Error(`Niepoprawne rekordy: ${schematDanych[nazwa].etykieta}.`);
     unikalne(dane[nazwa].map((rekord) => rekord.id));
   }
-  sprawdzRelacje(dane);
+  sprawdzRelacje(dane, wersjaKopii);
 }
 function unikalne(wartosci: string[]) {
   if (new Set(wartosci).size !== wartosci.length) throw new Error('Kopia zawiera powtórzone identyfikatory lub klucze unikalne.');
 }
-function sprawdzRelacje(dane: DaneKopii) {
+function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2) {
   function znajdz<K extends keyof DaneKopii>(magazyn: K, id: string): DaneKopii[K][number] {
     const rekord = dane[magazyn].find((rekord) => rekord.id === id);
     if (!rekord) throw new Error('Kopia zawiera odwołanie do nieistniejącego rekordu.');
@@ -108,7 +133,7 @@ function sprawdzRelacje(dane: DaneKopii) {
     if (!analiza.elementy.some((element) => element.id === elementId) || (wpisId && analiza.wpisId !== wpisId)) throw new Error('Niepoprawne pochodzenie z analizy wpisu.');
   }
   unikalne(dane.decyzje.map((rekord) => rekord.czytelneId));
-  unikalne(dane.analizyWpisow.map((rekord) => rekord.wpisId));
+  if (wersjaKopii === 1) unikalne(dane.analizyWpisow.map((rekord) => rekord.wpisId));
   const pochodzenia: string[] = [];
   for (const wpis of dane.wpisy) if (wpis.projektId) znajdz('projekty', wpis.projektId);
   for (const decyzja of dane.decyzje) {
@@ -155,6 +180,36 @@ function sprawdzRelacje(dane: DaneKopii) {
       // REVIEW i powiazaneElementy to ręczne odnośniki, także do zewnętrznych obiektów.
     }
   }
+  if (wersjaKopii === 2) {
+    const zWynikiem = dane.przebiegiAnaliz.filter((przebieg) => przebieg.status === 'SUCCEEDED' || przebieg.status === 'LEGACY_IMPORTED');
+    for (const analiza of dane.analizyWpisow) {
+      if (!zWynikiem.some((przebieg) => przebieg.id === analiza.id)) throw new Error('Brak przebiegu zapisanej analizy.');
+    }
+    for (const przebieg of dane.przebiegiAnaliz) {
+      znajdz('wpisy', przebieg.sourceId);
+      if (przebieg.supersedesAnalysisRunId) {
+        const poprzedni = znajdz('przebiegiAnaliz', przebieg.supersedesAnalysisRunId);
+        if (poprzedni.sourceId !== przebieg.sourceId || poprzedni.id === przebieg.id) throw new Error('Niepoprawne zastępowanie przebiegu.');
+        const odwiedzone = new Set([przebieg.id]);
+        let nastepny: PrzebiegAnalizyWpisu | undefined = poprzedni;
+        while (nastepny) {
+          if (odwiedzone.has(nastepny.id)) throw new Error('Cykl zastępowania analiz.');
+          odwiedzone.add(nastepny.id);
+          nastepny = nastepny.supersedesAnalysisRunId ? znajdz('przebiegiAnaliz', nastepny.supersedesAnalysisRunId) : undefined;
+        }
+      }
+      if (przebieg.status === 'SUCCEEDED' || przebieg.status === 'LEGACY_IMPORTED') {
+        const analiza = znajdz('analizyWpisow', przebieg.id);
+        const historyczny = migrujAnalize(analiza, 'BACKUP_V1');
+        if (analiza.wpisId !== przebieg.sourceId || analiza.status !== przebieg.reviewStatus
+          || JSON.stringify(uporzadkuj(przebieg.output)) !== JSON.stringify(uporzadkuj(historyczny.output))
+          || JSON.stringify(uporzadkuj(przebieg.provider)) !== JSON.stringify(uporzadkuj(historyczny.provider))) throw new Error('Przebieg nie odpowiada wynikowi i review analizy.');
+      } else if (dane.analizyWpisow.some((analiza) => analiza.id === przebieg.id)) throw new Error('Niezakończony przebieg nie może mieć review.');
+    }
+    for (const sourceId of new Set(zWynikiem.map((przebieg) => przebieg.sourceId))) {
+      if (zWynikiem.filter((przebieg) => przebieg.sourceId === sourceId && przebieg.preferred).length !== 1) throw new Error('Źródło musi mieć dokładnie jedną aktualną analizę z wynikiem.');
+    }
+  }
   const magazynyEncji = { PROJECT: 'projekty', CAPTURE: 'wpisy', DECISION: 'decyzje', IMPACT: 'analizyWplywu', WORK_ITEM: 'elementyPracy', QUESTION: 'pytania', BLOCKER: 'blokady' } as const;
   for (const zdarzenie of dane.zdarzenia) {
     if (zdarzenie.projektId) znajdz('projekty', zdarzenie.projektId);
@@ -162,14 +217,23 @@ function sprawdzRelacje(dane: DaneKopii) {
     if (zdarzenie.encjaId) znajdz(magazynyEncji[zdarzenie.typEncji], zdarzenie.encjaId);
   }
 }
-export function sprawdzKopie(wartosc: unknown): asserts wartosc is KopiaZapasowa {
+export function sprawdzKopie(wartosc: unknown): asserts wartosc is KopiaZapasowa | KopiaZapasowaV1 {
   if (!obiekt({ format: wybor(['centrum-projektowe']) })(wartosc)) throw new Error('To nie jest kopia Centrum Projektowego.');
-  const kopia = wartosc as KopiaZapasowa;
-  if (kopia.schemaVersion !== 1) throw new Error('Nieobsługiwana wersja schematu kopii.');
+  const kopia = wartosc as KopiaZapasowa | KopiaZapasowaV1;
+  if (kopia.schemaVersion !== 1 && kopia.schemaVersion !== 2) throw new Error('Nieobsługiwana wersja schematu kopii.');
   if (!obiekt({ appVersion: identyfikator, exportedAt: data })(kopia)) throw new Error('Niepoprawne metadane kopii.');
-  sprawdzDaneKopii(kopia.data);
+  sprawdzDane(kopia.data, kopia.schemaVersion);
 }
-export function odczytajKopie(tekstKopii: string): KopiaZapasowa {
+export function migrujKopie(wartosc: unknown): KopiaZapasowa {
+  sprawdzKopie(wartosc);
+  const kopia = structuredClone(wartosc);
+  if (kopia.schemaVersion === 2) return kopia;
+  const wynik: KopiaZapasowa = { ...kopia, schemaVersion: 2, data: { ...kopia.data,
+    przebiegiAnaliz: kopia.data.analizyWpisow.map((analiza) => migrujAnalize(analiza, 'BACKUP_V1')) } };
+  sprawdzDaneKopii(wynik.data);
+  return wynik;
+}
+export function odczytajKopie(tekstKopii: string): KopiaZapasowa | KopiaZapasowaV1 {
   let kopia: unknown;
   try { kopia = JSON.parse(tekstKopii); } catch { throw new Error('Nie udało się odczytać pliku JSON.'); }
   sprawdzKopie(kopia);

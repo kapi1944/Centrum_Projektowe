@@ -1,6 +1,7 @@
 import type { JednostkaPracy } from '@centrum-projektowe/domain';
 import type { AkcjaWpisu, KontekstZapisu, Projekt, Wpis, WynikZmianyProjektu, WynikZmianyWpisu, ZdarzenieAktywnosci, ZmianaProjektu } from './modele';
 import type { AnalizaWpisu, OperacjaAnalizyWpisu, WynikAnalizyWpisu } from './analizaWpisu';
+import type { OperacjaPrzebiegu, PrzebiegAnalizyWpisu } from './przebiegiAnaliz';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen, WynikUstalen } from './ustalenia';
 import type { OperacjaRealizacji, StanRealizacji, WynikRealizacji } from './realizacja';
 
@@ -15,6 +16,8 @@ export interface RepozytoriumWpisow {
   wykonajAkcjeWpisu(id: string, akcja: AkcjaWpisu, kontekst: KontekstZapisu): Promise<WynikZmianyWpisu>;
 }
 export interface RepozytoriumAnaliz {
+  pobierzPrzebiegiAnaliz(): Promise<PrzebiegAnalizyWpisu[]>;
+  wykonajOperacjePrzebiegu(operacja: OperacjaPrzebiegu, kontekst: KontekstZapisu): Promise<void>;
   pobierzAnalizyWpisow(): Promise<AnalizaWpisu[]>;
   wykonajOperacjeAnalizyWpisu(operacja: OperacjaAnalizyWpisu, kontekst: KontekstZapisu): Promise<WynikAnalizyWpisu>;
 }

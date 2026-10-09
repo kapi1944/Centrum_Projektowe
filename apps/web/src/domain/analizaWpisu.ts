@@ -32,6 +32,7 @@ export interface WynikDostawcyAnalizy {
   elementy: PropozycjaAnalizy[];
 }
 export interface AnalysisProvider {
+  readonly pochodzenie: { type: WynikDostawcyAnalizy['typDostawcy']; name?: string; version?: string };
   analizuj(trescOryginalna: string): Promise<WynikDostawcyAnalizy>;
 }
 export interface ElementAnalizy extends PropozycjaAnalizy {
@@ -53,7 +54,7 @@ export interface AnalizaWpisu extends Omit<WynikDostawcyAnalizy, 'elementy'> {
   elementy: ElementAnalizy[];
 }
 export type OperacjaAnalizyWpisu =
-  | { rodzaj: 'generuj'; id: string; wpisId: string; wynik: WynikDostawcyAnalizy }
+  | { rodzaj: 'generuj'; id: string; wpisId: string; wynik: WynikDostawcyAnalizy; wymagajRozpoczetego?: true; trescZrodlowa?: string }
   | { rodzaj: 'rozpocznij'; id: string; wersja: number }
   | { rodzaj: 'review'; id: string; wersja: number; elementId: string; status: Exclude<StatusReview, 'PENDING'>; trescEdytowana?: string }
   | { rodzaj: 'zakoncz'; id: string; wersja: number }
@@ -68,7 +69,7 @@ export function wykonajAnalizeWpisu(
 ): WynikAnalizyWpisu {
   let analiza: AnalizaWpisu;
   if (operacja.rodzaj === 'generuj') {
-    if (analizyWpisow.some((analiza) => analiza.wpisId === operacja.wpisId || analiza.id === operacja.id)) throw new Error('Wpis ma już analizę. Otwórz zapisaną weryfikację.');
+    if (analizyWpisow.some((analiza) => analiza.id === operacja.id)) throw new Error('Identyfikator analizy jest zajęty.');
     const wynik = operacja.wynik;
     if (!['RULE_BASED', 'REMOTE_LLM', 'LOCAL_LLM'].includes(wynik.typDostawcy) || !wynik.wersjaAnalizy.trim()) throw new Error('Niepoprawne pochodzenie analizy.');
     analiza = {
@@ -88,7 +89,7 @@ export function wykonajAnalizeWpisu(
     analiza = { ...odczytana, wersja: odczytana.wersja + 1, elementy: odczytana.elementy.map((element) => ({ ...element })) };
   }
   const wpis = stan.wpisy.find((wpis) => wpis.id === analiza.wpisId);
-  if (!wpis || wpis.status === 'DISMISSED' || wpis.status === 'APPLIED') throw new Error('Wpis nie istnieje lub jest już zamknięty.');
+  if (!wpis || wpis.status === 'DISMISSED') throw new Error('Wpis nie istnieje lub jest odrzucony.');
   const wynik: WynikAnalizyWpisu = { analizaWpisu: analiza, wpis: { ...wpis }, decyzje: [], analizy: [], projekty: [], zdarzenia: [] };
   function zdarzenie(typ: 'CAPTURE_ANALYZED' | 'CAPTURE_REVIEWED' | 'CAPTURE_ANALYSIS_APPLIED', tytul: string) {
     wynik.zdarzenia.push({ id: kontekst.idZdarzenia, projektId: wpis!.projektId, typEncji: 'CAPTURE', encjaId: wpis!.id,
@@ -99,7 +100,6 @@ export function wykonajAnalizeWpisu(
   }
   switch (operacja.rodzaj) {
     case 'generuj':
-      if (wpis.status !== 'UNPROCESSED') throw new Error('Analiza wymaga nieprzetworzonego wpisu.');
       wynik.wpis.status = 'ANALYZED';
       wynik.wpis.odlozonoDoAnalizy = null;
       zdarzenie('CAPTURE_ANALYZED', 'Wygenerowano analizę wpisu — wymaga weryfikacji');

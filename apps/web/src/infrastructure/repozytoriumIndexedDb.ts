@@ -1,4 +1,4 @@
-import { nazwyMagazynow, pusteDaneKopii, sprawdzKopie, sprawdzDaneKopii, polaczDane, type DaneKopii } from '../domain/kopieZapasowe';
+import { nazwyMagazynow, pusteDaneKopii, migrujKopie, sprawdzDaneKopii, polaczDane, schematDanych, type DaneKopii } from '../domain/kopieZapasowe';
 import daneAplikacji from '../../package.json';
 import type { Projekt, Wpis, ZdarzenieAktywnosci } from '../domain/modele';
 import { przygotujAkcjeWpisu, utworzProjekt, utworzWpis, zdarzenieUtworzenia, zmienProjekt } from '../domain/operacje';
@@ -8,6 +8,7 @@ import { wykonajAnalizeWpisu, type AnalizaWpisu } from '../domain/analizaWpisu';
 import { wykonajRealizacje, type StanRealizacji } from '../domain/realizacja';
 import { utworzJednostkePracyIndexedDb } from './jednostkaPracyIndexedDb';
 import { aktualizujPunktPowrotu, zapiszNowyWpis } from '../application/przypadkiUzycia';
+import { migrujAnalize, wykonajOperacjePrzebiegu, type PrzebiegAnalizyWpisu } from '../domain/przebiegiAnaliz';
 
 export function utworzRepozytoriumIndexedDb(
   nazwaBazy = 'centrum-projektowe',
@@ -18,7 +19,7 @@ export function utworzRepozytoriumIndexedDb(
         odrzuc(new Error('Ta przeglądarka nie udostępnia IndexedDB.'));
         return;
       }
-      const zadanie = indexedDB.open(nazwaBazy, 5);
+      const zadanie = indexedDB.open(nazwaBazy, 6);
       let zablokowano = false;
       zadanie.onupgradeneeded = (zdarzenie) => {
         const baza = zadanie.result;
@@ -74,6 +75,22 @@ export function utworzRepozytoriumIndexedDb(
               kursor.continue();
             };
           }
+        }
+        if (zdarzenie.oldVersion < 6) {
+          const transakcja = zadanie.transaction!;
+          const analizy = transakcja.objectStore('analizyWpisow');
+          analizy.deleteIndex('wpisId');
+          analizy.createIndex('wpisId', 'wpisId');
+          const przebiegi = baza.createObjectStore('przebiegiAnaliz', { keyPath: 'id' });
+          przebiegi.createIndex('sourceId', 'sourceId');
+          // Stary rekord review i jego ID pozostają bez zmian; upgrade jest jedną transakcją.
+          if (zdarzenie.oldVersion >= 4) odczytajDane(transakcja, (dane) => {
+            try {
+              dane.przebiegiAnaliz = dane.analizyWpisow.map((analiza) => migrujAnalize(analiza, zdarzenie.oldVersion === 4 ? 'INDEXEDDB_V4' : 'INDEXEDDB_V5'));
+              sprawdzDaneKopii(dane);
+              for (const przebieg of dane.przebiegiAnaliz) przebiegi.add(przebieg);
+            } catch { transakcja.abort(); }
+          });
         }
       };
       zadanie.onsuccess = () => {
@@ -170,7 +187,7 @@ export function utworzRepozytoriumIndexedDb(
             try {
               // Spójny obraz wszystkich magazynów pochodzi z jednej transakcji.
               sprawdzDaneKopii(dane);
-              rozwiaz({ format: 'centrum-projektowe', schemaVersion: 1, appVersion: daneAplikacji.version, exportedAt: new Date().toISOString(), data: dane });
+              rozwiaz({ format: 'centrum-projektowe', schemaVersion: 2, appVersion: daneAplikacji.version, exportedAt: new Date().toISOString(), data: dane });
             } catch (blad) { odrzuc(blad); }
           };
         });
@@ -178,14 +195,24 @@ export function utworzRepozytoriumIndexedDb(
     },
     importujKopie: async (kopia, tryb, potwierdzonoZastapienie = false) => {
       // Osobna kopia zapobiega zmianie argumentu podczas oczekiwania na bazę.
-      const przyjeta: unknown = structuredClone(kopia);
-      sprawdzKopie(przyjeta);
+      const przyjeta = migrujKopie(kopia);
+      const staryFormat = (kopia as { schemaVersion: number }).schemaVersion === 1;
       if (tryb !== 'polacz' && tryb !== 'zastap') throw new Error('Niepoprawny tryb importu.');
       if (tryb === 'zastap' && !potwierdzonoZastapienie) throw new Error('Potwierdź zastąpienie obecnych danych.');
       await zapisz<void>((transakcja, zakoncz, _odczytajProjekt, przerwij) => {
         odczytajDane(transakcja, (obecne) => {
           try {
-            const dane = tryb === 'polacz' ? polaczDane(obecne, przyjeta.data) : przyjeta.data;
+            let importowane = przyjeta.data;
+            if (tryb === 'polacz' && staryFormat) {
+              // Kopia v1 nie zna runów ani późniejszego wyboru aktualnej analizy.
+              importowane = { ...przyjeta.data, przebiegiAnaliz: przyjeta.data.przebiegiAnaliz.map((przebieg) => {
+                const istniejacy = obecne.przebiegiAnaliz.find((obecny) => obecny.id === przebieg.id);
+                if (istniejacy && obecne.analizyWpisow.some((analiza) => analiza.id === przebieg.id)) return istniejacy;
+                return obecne.przebiegiAnaliz.some((obecny) => obecny.sourceId === przebieg.sourceId && obecny.preferred)
+                  ? { ...przebieg, preferred: false } : przebieg;
+              }) };
+            }
+            const dane = tryb === 'polacz' ? polaczDane(obecne, importowane) : importowane;
             for (const nazwa of nazwyMagazynow) {
               const magazyn = transakcja.objectStore(nazwa);
               if (tryb === 'zastap') magazyn.clear();
@@ -228,6 +255,22 @@ export function utworzRepozytoriumIndexedDb(
         } catch (blad) { przerwij(blad); }
       };
     }),
+    pobierzPrzebiegiAnaliz: () => pobierzWszystkie<PrzebiegAnalizyWpisu>('przebiegiAnaliz'),
+    wykonajOperacjePrzebiegu: (operacja, kontekst) => zapisz<void>((transakcja, zakoncz, _odczytajProjekt, przerwij) => {
+      odczytajDane(transakcja, (dane) => {
+        try {
+          const wynik = wykonajOperacjePrzebiegu(dane.przebiegiAnaliz, dane.wpisy, operacja, kontekst);
+          dane.przebiegiAnaliz = [...dane.przebiegiAnaliz.filter((przebieg) => !wynik.zapisy.some((nowy) => nowy.id === przebieg.id)), ...wynik.zapisy];
+          sprawdzDaneKopii(dane);
+          for (const przebieg of wynik.zapisy) {
+            if (operacja.rodzaj === 'rozpocznij') transakcja.objectStore('przebiegiAnaliz').add(przebieg);
+            else transakcja.objectStore('przebiegiAnaliz').put(przebieg);
+          }
+          transakcja.objectStore('zdarzenia').add(wynik.zdarzenie);
+          zakoncz();
+        } catch (blad) { przerwij(blad); }
+      });
+    }),
     pobierzAnalizyWpisow: () => pobierzWszystkie<AnalizaWpisu>('analizyWpisow'),
     wykonajOperacjeAnalizyWpisu: (operacja, kontekst) => zapisz((transakcja, zakoncz, _odczytajProjekt, przerwij) => {
       const projekty = transakcja.objectStore('projekty').getAll();
@@ -235,11 +278,35 @@ export function utworzRepozytoriumIndexedDb(
       const decyzje = transakcja.objectStore('decyzje').getAll();
       const analizy = transakcja.objectStore('analizyWplywu').getAll();
       const analizyWpisow = transakcja.objectStore('analizyWpisow').getAll();
-      let pozostalo = 5;
-      for (const zadanie of [projekty, wpisy, decyzje, analizy, analizyWpisow]) zadanie.onsuccess = () => {
+      const przebiegi = transakcja.objectStore('przebiegiAnaliz').getAll();
+      let pozostalo = 6;
+      for (const zadanie of [projekty, wpisy, decyzje, analizy, analizyWpisow, przebiegi]) zadanie.onsuccess = () => {
         if (--pozostalo !== 0) return;
         try {
           const wynik = wykonajAnalizeWpisu({ projekty: projekty.result, wpisy: wpisy.result, decyzje: decyzje.result, analizy: analizy.result }, analizyWpisow.result, operacja, kontekst);
+          const dotychczasowe = przebiegi.result as PrzebiegAnalizyWpisu[];
+          const poprzedni = dotychczasowe.find((przebieg) => przebieg.id === wynik.analizaWpisu.id);
+          let przebieg: PrzebiegAnalizyWpisu;
+          if (operacja.rodzaj === 'generuj') {
+            if (operacja.wymagajRozpoczetego && !poprzedni) throw new Error('Rozpoczęty przebieg został zastąpiony lub usunięty przez odtworzenie danych.');
+            if (operacja.trescZrodlowa !== undefined && wynik.wpis.trescOryginalna !== operacja.trescZrodlowa) throw new Error('Źródło zmieniło się podczas analizy. Uruchom nowy przebieg.');
+            if (poprzedni && (poprzedni.status !== 'RUNNING' || poprzedni.sourceId !== operacja.wpisId)) throw new Error('Przebieg nie oczekuje na ten wynik.');
+            const provider = { type: operacja.wynik.typDostawcy, name: operacja.wynik.nazwaDostawcy, version: operacja.wynik.wersjaDostawcy };
+            if (poprzedni && (poprzedni.provider.type !== provider.type || poprzedni.provider.name !== provider.name || poprzedni.provider.version !== provider.version)) throw new Error('Wynik pochodzi od innego dostawcy.');
+            const poczatek = poprzedni?.startedAt ?? kontekst.czas;
+            if (Date.parse(kontekst.czas) < Date.parse(poczatek)) throw new Error('Koniec przebiegu poprzedza początek.');
+            przebieg = { ...poprzedni, id: operacja.id, sourceId: operacja.wpisId, sourceType: 'CAPTURE', provider,
+              schemaVersion: 'capture-analysis-v1', status: 'SUCCEEDED', startedAt: poczatek, finishedAt: kontekst.czas,
+              output: structuredClone(operacja.wynik), preferred: !dotychczasowe.some((inny) => inny.sourceId === operacja.wpisId && inny.preferred),
+              reviewStatus: wynik.analizaWpisu.status, createdAt: poprzedni?.createdAt ?? kontekst.czas };
+          } else {
+            if (!poprzedni || !['SUCCEEDED', 'LEGACY_IMPORTED'].includes(poprzedni.status)) throw new Error('Brak zakończonego przebiegu analizy.');
+            przebieg = { ...poprzedni, reviewStatus: wynik.analizaWpisu.status };
+          }
+          if (!przebieg.preferred) wynik.wpis = wpisy.result.find((wpis: Wpis) => wpis.id === wynik.wpis.id);
+          if (!schematDanych.przebiegiAnaliz.sprawdz(przebieg)) throw new Error('Niepoprawny rekord przebiegu analizy.');
+          if (poprzedni) transakcja.objectStore('przebiegiAnaliz').put(przebieg);
+          else transakcja.objectStore('przebiegiAnaliz').add(przebieg);
           const magazyn = transakcja.objectStore('analizyWpisow');
           if (operacja.rodzaj === 'generuj') magazyn.add(wynik.analizaWpisu);
           else magazyn.put(wynik.analizaWpisu);

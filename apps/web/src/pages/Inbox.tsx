@@ -8,8 +8,10 @@ import { PanelWplywu } from '../features/ustalenia/PanelWplywu';
 import type { AnalizaWpisu, OperacjaAnalizyWpisu } from '../domain/analizaWpisu';
 import type { OperacjaRealizacji, StanRealizacji } from '../domain/realizacja';
 import { ReviewAnalizy } from '../features/inbox/ReviewAnalizy';
+import type { PrzebiegAnalizyWpisu } from '../domain/przebiegiAnaliz';
 
-export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, wykonajUstalenie, analizyWpisow, analizujWpis, wykonajAnalizeWpisu, realizacja, wykonajRealizacje }: {
+export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, wykonajUstalenie, analizyWpisow, przebiegiAnaliz, preferujAnalize, analizujWpis, wykonajAnalizeWpisu, realizacja, wykonajRealizacje }: {
+  przebiegiAnaliz: PrzebiegAnalizyWpisu[]; preferujAnalize: (id: string) => Promise<void>;
   realizacja: StanRealizacji; wykonajRealizacje: (operacja: OperacjaRealizacji) => Promise<void>;
   analizyWpisow: AnalizaWpisu[];
   analizujWpis: (wpisId: string) => Promise<void>;
@@ -80,7 +82,7 @@ export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, 
       <p className="surowy-wpis">{wpis.trescOryginalna}</p>
       <small>{wpis.projektId ? <Link to={`/projekty/${wpis.projektId}`}>{projekty.find((projekt) => projekt.id === wpis.projektId)?.nazwa ?? 'Nieznany projekt'}</Link> : 'Bez przypisania'} · {formatujDate(wpis.utworzono)} · {etykietyStatusowWpisu[wpis.status]}{wpis.odlozonoDoAnalizy ? ' · Do analizy później' : ''}</small>
       <AkcjeWpisu wpis={wpis} projekty={projekty} wykonajAkcje={wykonajAkcjeWpisu} />
-      <ReviewAnalizy wpis={wpis} analiza={analizyWpisow.find((analiza) => analiza.wpisId === wpis.id)} projekty={projekty} analizuj={analizujWpis} wykonaj={wykonajAnalizeWpisu} realizacja={realizacja} wykonajRealizacje={wykonajRealizacje} />
+      <ReviewAnalizy wpis={wpis} analizy={analizyWpisow.filter((analiza) => analiza.wpisId === wpis.id)} przebiegi={przebiegiAnaliz.filter((przebieg) => przebieg.sourceId === wpis.id)} preferuj={preferujAnalize} projekty={projekty} analizuj={analizujWpis} wykonaj={wykonajAnalizeWpisu} realizacja={realizacja} wykonajRealizacje={wykonajRealizacje} />
       <PanelWplywu zrodlo={{ typ: 'CAPTURE', id: wpis.id }} analizy={analizy} wykonaj={wykonajUstalenie} />
     </li>)}</ul>}
   </>;

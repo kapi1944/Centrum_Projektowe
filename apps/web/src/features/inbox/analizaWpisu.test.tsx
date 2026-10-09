@@ -9,6 +9,7 @@ import { utworzRepozytoriumIndexedDb } from '../../infrastructure/repozytoriumIn
 async function kliknij(uzytkownik: ReturnType<typeof osoba.setup>, element: HTMLElement) {
   await waitFor(() => expect(element).toBeEnabled());
   await uzytkownik.click(element);
+  await waitFor(() => expect(screen.queryByText('Zapisywanie analizy…')).not.toBeInTheDocument());
 }
 
 async function przygotuj(tresc = '  Decyduję: zapis lokalny.\nWpływ: zmiana zakresu.\nTrzeba sprawdzić zapis.\nCo dalej?  ') {
@@ -25,6 +26,30 @@ async function przygotuj(tresc = '  Decyduję: zapis lokalny.\nWpływ: zmiana za
 }
 
 describe('Review CaptureAnalysis w Inbox', () => {
+  it('ponawia analizę, zachowuje dawne review i jawnie wybiera aktualny run po ponownym otwarciu', async () => {
+    const { nazwaBazy, repozytorium, uzytkownik, widok, tresc } = await przygotuj('Zakładam zgodność.');
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Rozpocznij weryfikację' }));
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Edytuj' }));
+    await uzytkownik.clear(screen.getByLabelText('Treść po edycji'));
+    await uzytkownik.type(screen.getByLabelText('Treść po edycji'), 'Dawna korekta');
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zatwierdź edycję' }));
+    await screen.findByText('Dawna korekta', { selector: 'article > p' });
+    const dawna = (await repozytorium.pobierzAnalizyWpisow())[0];
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Uruchom ponownie analizę' }));
+    await screen.findByRole('button', { name: 'Analiza 2' });
+    expect((await repozytorium.pobierzPrzebiegiAnaliz()).filter((przebieg) => przebieg.preferred).map((przebieg) => przebieg.id)).toEqual([dawna.id]);
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Ustaw jako aktualną' }));
+    const aktualny = (await repozytorium.pobierzPrzebiegiAnaliz()).find((przebieg) => przebieg.preferred)!;
+    expect(aktualny.id).not.toBe(dawna.id);
+    widok.unmount();
+    render(<MemoryRouter initialEntries={['/inbox']}><Aplikacja repozytorium={utworzRepozytoriumIndexedDb(nazwaBazy)} /></MemoryRouter>);
+    await screen.findByRole('button', { name: 'Rozpocznij weryfikację' });
+    expect(screen.getByRole('button', { name: 'Analiza 2' })).toHaveAttribute('aria-pressed', 'true');
+    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Analiza 1' }));
+    expect(await screen.findByText('Dawna korekta', { selector: 'article > p' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Oryginalny wpis' }).nextElementSibling?.textContent).toBe(tresc);
+    expect((await repozytorium.pobierzAnalizyWpisow()).find((analiza) => analiza.id === dawna.id)).toEqual(dawna);
+  });
   it('prowadzi od oryginału przez edycję i odrzucenie do propozycji Decision oraz osobnego zatwierdzenia Impact', async () => {
     const { repozytorium, uzytkownik, tresc } = await przygotuj();
     expect(screen.getByRole('heading', { name: 'Oryginalny wpis' }).nextElementSibling?.textContent).toBe(tresc);

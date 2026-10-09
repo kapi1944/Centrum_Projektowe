@@ -24,10 +24,15 @@ export interface RekordZrodlowy<Poprzedni = unknown> {
 interface PodstawaPrzebiegu<Poprzedni> {
   readonly id: string;
   readonly sourceId: string;
+  readonly sourceType: 'CAPTURE';
   readonly provider: { readonly type: 'RULE_BASED' | 'REMOTE_LLM' | 'LOCAL_LLM'; readonly name?: string; readonly version?: string };
   readonly model?: string;
   readonly promptVersion?: string;
   readonly schemaVersion: string;
+  readonly preferred: boolean;
+  readonly reviewStatus: 'NOT_STARTED' | 'GENERATED' | 'IN_REVIEW' | 'REVIEWED' | 'APPLIED';
+  readonly createdAt: string;
+  readonly migrationSource?: { readonly kind: 'INDEXEDDB_V4' | 'INDEXEDDB_V5' | 'BACKUP_V1'; readonly legacyAnalysisId: string };
   readonly supersedesAnalysisRunId?: string;
   readonly zgodnoscV1?: Poprzedni;
 }

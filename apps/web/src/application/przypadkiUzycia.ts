@@ -1,6 +1,22 @@
 import type { JednostkaPracyProjektowej } from '../domain/porty';
 import type { KontekstZapisu, PunktPowrotu, Wpis, WynikZmianyProjektu, ZdarzenieAktywnosci } from '../domain/modele';
 import { utworzWpis, zdarzenieUtworzenia, zmienProjekt } from '../domain/operacje';
+import type { RepozytoriumAnaliz } from '../domain/porty';
+import type { AnalysisProvider } from '../domain/analizaWpisu';
+
+export async function uruchomAnalizeWpisu(repozytorium: RepozytoriumAnaliz, wpis: Wpis, dostawca: AnalysisProvider, utworzKontekst: () => KontekstZapisu) {
+  const id = crypto.randomUUID();
+  await repozytorium.wykonajOperacjePrzebiegu({ rodzaj: 'rozpocznij', id, wpisId: wpis.id, provider: dostawca.pochodzenie }, utworzKontekst());
+  try {
+    const wynik = await dostawca.analizuj(wpis.trescOryginalna);
+    return await repozytorium.wykonajOperacjeAnalizyWpisu({ rodzaj: 'generuj', id, wpisId: wpis.id, wynik, wymagajRozpoczetego: true, trescZrodlowa: wpis.trescOryginalna }, utworzKontekst());
+  } catch (blad) {
+    if ((await repozytorium.pobierzPrzebiegiAnaliz()).some((przebieg) => przebieg.id === id && przebieg.status === 'RUNNING')) {
+      await repozytorium.wykonajOperacjePrzebiegu({ rodzaj: 'blad', id }, utworzKontekst());
+    }
+    throw blad;
+  }
+}
 
 export async function utworzWpisUzytkownika(
   jednostkaPracy: JednostkaPracyProjektowej,

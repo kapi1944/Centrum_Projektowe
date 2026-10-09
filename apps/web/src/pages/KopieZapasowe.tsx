@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import type { RepozytoriumProjektowe } from '../domain/repozytorium';
-import { BladKonfliktow, odczytajKopie, nazwyMagazynow, schematDanych, type KopiaZapasowa, type TrybImportu, type KonfliktKopii } from '../domain/kopieZapasowe';
+import { BladKonfliktow, odczytajKopie, nazwyMagazynow, schematDanych, type KopiaZapasowa, type KopiaZapasowaV1, type TrybImportu, type KonfliktKopii } from '../domain/kopieZapasowe';
 import { formatujDate } from '../shared/formatujDate';
 
 export function KopieZapasowe({ repozytorium, odswiez }: { repozytorium: RepozytoriumProjektowe; odswiez: () => void }) {
-  const [kopia, ustawKopie] = useState<KopiaZapasowa | null>(null);
+  const [kopia, ustawKopie] = useState<KopiaZapasowa | KopiaZapasowaV1 | null>(null);
   const [tryb, ustawTryb] = useState<TrybImportu>('polacz');
   const [potwierdzono, ustawPotwierdzenie] = useState(false);
   const [blad, ustawBlad] = useState('');
@@ -80,7 +80,7 @@ export function KopieZapasowe({ repozytorium, odswiez }: { repozytorium: Repozyt
       {kopia && <>
         <h2>Kopia zawiera</h2>
         <p>Data wykonania: {formatujDate(kopia.exportedAt)}. Wersja schematu: {kopia.schemaVersion}. Wersja aplikacji: {kopia.appVersion}.</p>
-        <ul>{nazwyMagazynow.map((nazwa) => <li key={nazwa}>{schematDanych[nazwa].etykieta}: {kopia.data[nazwa].length}</li>)}
+        <ul>{nazwyMagazynow.filter((nazwa) => kopia.schemaVersion === 2 || nazwa !== 'przebiegiAnaliz').map((nazwa) => <li key={nazwa}>{schematDanych[nazwa].etykieta}: {nazwa === 'przebiegiAnaliz' ? (kopia.schemaVersion === 2 ? kopia.data.przebiegiAnaliz.length : 0) : kopia.data[nazwa].length}</li>)}
           <li>Analiz łącznie: {kopia.data.analizyWpisow.length + kopia.data.analizyWplywu.length}</li>
         </ul>
         <label>Sposób odtworzenia <select disabled={zajety} value={tryb} onChange={(zdarzenie) => {

@@ -4,9 +4,10 @@ import type { DaneProjektu, KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci, 
 import type { AkcjaWpisu } from '../../domain/modele';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen } from '../../domain/ustalenia';
 import { sprawdzDaneProjektu, utworzProjekt } from '../../domain/operacje';
-import { aktualizujPunktPowrotu, utworzWpisUzytkownika } from '../../application/przypadkiUzycia';
+import { aktualizujPunktPowrotu, utworzWpisUzytkownika, uruchomAnalizeWpisu } from '../../application/przypadkiUzycia';
 import type { RepozytoriumProjektowe } from '../../domain/repozytorium';
-import type { AnalizaWpisu, AnalysisProvider, OperacjaAnalizyWpisu } from '../../domain/analizaWpisu';
+import type { AnalizaWpisu, AnalysisProvider, OperacjaAnalizyWpisu, WynikAnalizyWpisu } from '../../domain/analizaWpisu';
+import type { PrzebiegAnalizyWpisu } from '../../domain/przebiegiAnaliz';
 import type { WynikUstalen } from '../../domain/ustalenia';
 import { RuleBasedAnalysisProvider } from '../../infrastructure/RuleBasedAnalysisProvider';
 
@@ -19,6 +20,7 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
   const [decyzje, ustawDecyzje] = useState<Decyzja[]>([]);
   const [analizy, ustawAnalizy] = useState<AnalizaWplywu[]>([]);
   const [analizyWpisow, ustawAnalizyWpisow] = useState<AnalizaWpisu[]>([]);
+  const [przebiegiAnaliz, ustawPrzebiegiAnaliz] = useState<PrzebiegAnalizyWpisu[]>([]);
   const [realizacja, ustawRealizacje] = useState(pustaRealizacja);
   const [stan, ustawStan] = useState<'ladowanie' | 'gotowy' | 'blad'>('ladowanie');
   const [blad, ustawBlad] = useState('');
@@ -26,8 +28,8 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
 
   useEffect(() => {
     let aktywny = true;
-    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia(), repozytorium.pobierzDecyzje(), repozytorium.pobierzAnalizyWplywu(), repozytorium.pobierzAnalizyWpisow(), repozytorium.pobierzRealizacje()])
-      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia, odczytaneDecyzje, odczytaneAnalizy, odczytaneAnalizyWpisow, odczytanaRealizacja]) => {
+    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia(), repozytorium.pobierzDecyzje(), repozytorium.pobierzAnalizyWplywu(), repozytorium.pobierzAnalizyWpisow(), repozytorium.pobierzRealizacje(), repozytorium.pobierzPrzebiegiAnaliz()])
+      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia, odczytaneDecyzje, odczytaneAnalizy, odczytaneAnalizyWpisow, odczytanaRealizacja, odczytanePrzebiegi]) => {
         if (!aktywny) return;
         ustawProjekty(odczytaneProjekty);
         ustawWpisy(odczytaneWpisy);
@@ -35,6 +37,7 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
         ustawDecyzje(odczytaneDecyzje);
         ustawAnalizy(odczytaneAnalizy);
         ustawAnalizyWpisow(odczytaneAnalizyWpisow);
+        ustawPrzebiegiAnaliz(odczytanePrzebiegi);
         ustawRealizacje(odczytanaRealizacja);
         ustawStan('gotowy');
       })
@@ -99,6 +102,11 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
 
   async function wykonajAnalizeWpisu(operacja: OperacjaAnalizyWpisu) {
     const wynik = await repozytorium.wykonajOperacjeAnalizyWpisu(operacja, utworzKontekst());
+    przyjmijAnalize(wynik);
+    await odswiezPrzebiegi();
+  }
+
+  function przyjmijAnalize(wynik: WynikAnalizyWpisu) {
     ustawAnalizyWpisow((poprzednie) => [...poprzednie.filter((analiza) => analiza.id !== wynik.analizaWpisu.id), wynik.analizaWpisu]);
     ustawWpisy((poprzednie) => poprzednie.map((wpis) => wpis.id === wynik.wpis.id ? wynik.wpis : wpis));
     przyjmijUstalenia(wynik);
@@ -107,8 +115,21 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
   async function analizujWpis(wpisId: string) {
     const wpis = wpisy.find((wpis) => wpis.id === wpisId);
     if (!wpis) throw new Error('Wpis nie istnieje.');
-    const wynik = await dostawcaAnalizy.analizuj(wpis.trescOryginalna);
-    await wykonajAnalizeWpisu({ rodzaj: 'generuj', id: crypto.randomUUID(), wpisId, wynik });
+    try { przyjmijAnalize(await uruchomAnalizeWpisu(repozytorium, wpis, dostawcaAnalizy, utworzKontekst)); }
+    finally { await odswiezPrzebiegi(); }
+  }
+
+  async function odswiezPrzebiegi() {
+    const [przebiegi, historia] = await Promise.all([repozytorium.pobierzPrzebiegiAnaliz(), repozytorium.pobierzZdarzenia()]);
+    ustawPrzebiegiAnaliz(przebiegi); ustawZdarzenia(historia);
+  }
+
+  async function preferujAnalize(id: string) {
+    const przebieg = przebiegiAnaliz.find((przebieg) => przebieg.id === id);
+    if (!przebieg) throw new Error('Przebieg nie istnieje.');
+    const poprzedni = przebiegiAnaliz.find((inny) => inny.sourceId === przebieg.sourceId && inny.preferred);
+    await repozytorium.wykonajOperacjePrzebiegu({ rodzaj: 'preferuj', id, poprzedniId: poprzedni?.id ?? null }, utworzKontekst());
+    await odswiezPrzebiegi();
   }
 
   async function wykonajRealizacje(operacja: OperacjaRealizacji) {
@@ -118,5 +139,5 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
     ustawZdarzenia((poprzednie) => [...poprzednie, ...wynik.zdarzenia]);
   }
 
-  return { odswiez: () => ustawOdswiezenie((poprzednie) => poprzednie + 1), projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, realizacja, wykonajRealizacje, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
+  return { odswiez: () => ustawOdswiezenie((poprzednie) => poprzednie + 1), projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, przebiegiAnaliz, preferujAnalize, realizacja, wykonajRealizacje, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
 }
