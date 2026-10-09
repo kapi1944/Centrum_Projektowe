@@ -1,0 +1,13 @@
+{
+  "name": "@centrum-projektowe/integration-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": { "types": "./src/index.d.ts" } },
+  "scripts": {
+    "build": "npm run typecheck",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0"
+  },
+  "dependencies": { "@centrum-projektowe/contracts": "0.0.0" }
+}

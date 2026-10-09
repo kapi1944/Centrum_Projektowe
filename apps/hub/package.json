@@ -1,0 +1,15 @@
+{
+  "name": "@centrum-projektowe/hub",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/start.ts",
+    "start": "node dist/start.js",
+    "build": "tsc --project tsconfig.build.json",
+    "test": "node --experimental-strip-types --test src/serwer.test.ts",
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "@centrum-projektowe/contracts": "0.0.0" }
+}

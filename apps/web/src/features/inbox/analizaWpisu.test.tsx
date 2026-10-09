@@ -100,7 +100,7 @@ describe('Review CaptureAnalysis w Inbox', () => {
       const historia = await repozytorium.pobierzZdarzenia();
       return oryginalnaOperacja(operacja, { ...kontekst, idZdarzenia: historia[0].id });
     });
-    await kliknij(uzytkownik, screen.getByRole('button', { name: 'Zastosuj zatwierdzone' }));
+    await kliknij(uzytkownik, await screen.findByRole('button', { name: 'Zastosuj zatwierdzone' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się zapisać danych lokalnych.');
     await waitFor(() => expect(screen.getByRole('button', { name: 'Zastosuj zatwierdzone' })).toBeEnabled());
     expect((await repozytorium.pobierzWpisy())[0].status).toBe('REVIEWED');

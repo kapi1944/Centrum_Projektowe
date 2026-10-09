@@ -21,7 +21,17 @@ npm run build
 npm run preview
 ```
 
-React + TypeScript + Vite + React Router. Vitest, Testing Library i fake-indexeddb sprawdzają domenę, trwały zapis oraz podstawowy przepływ UI. `build` tworzy katalog `dist`. Hosting statyczny musi przekierowywać ścieżki aplikacji (np. `/inbox`) do `index.html`.
+React + TypeScript + Vite + React Router. Vitest, Testing Library i fake-indexeddb sprawdzają domenę, trwały zapis oraz podstawowy przepływ UI. `build` tworzy katalog `apps/web/dist` i kompiluje szkielet Hubu do `apps/hub/dist`. Hosting statyczny musi przekierowywać ścieżki aplikacji (np. `/inbox`) do `index.html`.
+
+## Workspaces 2.0
+
+Komendy uruchamiaj z katalogu głównego repozytorium. Jeden `package-lock.json` obsługuje wszystkie workspaces. `npm run dev` uruchamia web na dotychczasowym porcie Vite; `npm run dev:hub` uruchamia niezależny szkielet Hubu na `http://127.0.0.1:3001/health`. Opcjonalny `PORT` zmienia port Hubu. Po buildzie można uruchomić Hub przez `npm start --workspace=@centrum-projektowe/hub`.
+
+`apps/web` zawiera całą dotychczasową aplikację, domenę, IndexedDB i 97 istniejących testów. `apps/hub` udostępnia tylko `GET /health`: `status`, `version`, `timestamp`. Web nie łączy się z Hubem. Brak bazy, synchronizacji, plików i autoryzacji Hubu.
+
+`packages/contracts` i `packages/integration-sdk` zawierają wyłącznie typy wspólne i porty z ADR 0006, bez adapterów. `packages/domain`, `packages/ui` i `packages/testing` są zarezerwowanymi workspaces bez kodu. Root przekazuje kontrole do workspaces ze zdefiniowanymi skryptami; puste pakiety nie mają pozornych buildów ani testów. Dokumentacja struktury i regresji: [migracja workspace](docs/v2/WORKSPACE_MIGRATION.md), [fundament UI](docs/ui/README.md).
+
+Reorganizacja nie zmienia nazwy bazy, jej wersji, formatu backupu ani originu web. Zachowaj dotychczasowy protokół, host i port: inny origin oznacza inną bazę przeglądarki.
 
 ## Aktualny zakres (Etapy 0–6, w tym 3R)
 
@@ -35,7 +45,7 @@ React + TypeScript + Vite + React Router. Vitest, Testing Library i fake-indexed
 - Analiza wpływu ze źródłem `Capture` lub `Decision`: kandydaci wynikają ze wspólnych projektów i jawnych odnośników. Każda propozycja jest zatwierdzana lub odrzucana osobno. Status decyzji i punkt powrotu mogą zmienić się dopiero po zatwierdzeniu; nieaktualne propozycje są blokowane.
 - Zmiany modelu i zdarzenia historii zapisują się atomowo. Oryginały `Capture` pozostają niezmienione.
 
-Analiza wpływu nie interpretuje semantycznie tekstu. Powiązania z zadaniami, elementami pracy, blokerami i dokumentacją to ręczne odnośniki; zatwierdzenie wpływu na odnośnik zapisuje potrzebę przeglądu i nie modyfikuje zewnętrznego obiektu. Nie ma sztucznej inteligencji, integracji, backendu, kont ani danych demonstracyjnych.
+Analiza wpływu nie interpretuje semantycznie tekstu. Powiązania z zadaniami, elementami pracy, blokerami i dokumentacją to ręczne odnośniki; zatwierdzenie wpływu na odnośnik zapisuje potrzebę przeglądu i nie modyfikuje zewnętrznego obiektu. Web nie korzysta z backendu; osobny szkielet Hubu ma wyłącznie health check. Nie ma sztucznej inteligencji, działających integracji, kont ani danych demonstracyjnych.
 
 ## Wpis → Analiza wpisu → Weryfikacja → Zastosowanie → Decyzja / Analiza wpływu
 

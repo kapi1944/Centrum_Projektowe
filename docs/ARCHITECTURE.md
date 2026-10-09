@@ -11,7 +11,7 @@
 ## Podział odpowiedzialności
 
 ```text
-src/
+apps/web/src/
   app/             układ aplikacji, obsługa tras, połączenie UI z rejestrem
   domain/          modele, czyste operacje, AnalysisProvider, kontrakt repozytorium
   features/        formularze, weryfikacja, ustalenia, koordynacja zapisu
@@ -19,6 +19,8 @@ src/
   pages/           Start, Projekty, Projekt, Inbox, Ustalenia
   shared/          style i formatowanie dat
 ```
+
+Po reorganizacji npm workspaces aplikacja web zachowuje ten podział bez zmian domeny. `apps/hub` zawiera wyłącznie niezależny health check. Typy współdzielone i porty integracji są w `packages/contracts` i `packages/integration-sdk`; pakiety `domain`, `ui`, `testing` są miejscami przyszłej migracji bez implementacji. Szczegóły i wyniki regresji: [migracja workspace](v2/WORKSPACE_MIGRATION.md).
 
 Domena nie importuje Reacta, IndexedDB ani API przeglądarki. Otrzymuje identyfikatory, czas i kontekst zapisu przez argumenty. `analizaWpisu.ts` przechowuje model analizy oraz reguły jej cyklu życia i zastosowania. Przy tworzeniu decyzji i wpływu wywołuje istniejącą `wykonajOperacjeUstalen`; kolejne decyzje w jednym zastosowaniu widzą już wcześniejsze numery `DEC-XXXX`. Nie ma drugiego silnika `Decision` ani `Impact`.
 
