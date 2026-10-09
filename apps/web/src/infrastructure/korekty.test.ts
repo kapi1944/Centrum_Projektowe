@@ -82,6 +82,33 @@ describe('Korekty, review i atomowy zestaw zmian', () => {
     expect(po.korekty[0]).toMatchObject({ typ: 'REJECTION', nowaWartosc: 'Nie chcę Google Drive.', typZrodla: 'USER' });
     expect(po.zdarzeniaDomenowe[0].eventType).toBe('CORRECTION_KNOWLEDGE_RETAINED');
   });
+  it('EDITED wpływu stosuje własny następny krok i zachowuje oryginalną propozycję oraz uzasadnienie', async () => {
+    const { repozytorium } = await przygotuj(); const id = await utworz(repozytorium);
+    const analiza = (await repozytorium.pobierzAnalizyWplywu())[0];
+    const oryginal = structuredClone(analiza.propozycje.find((propozycja) => propozycja.rodzaj === 'RESUME'));
+    await reviewuj(repozytorium, id);
+    const propozycja = (await repozytorium.pobierzKorekty()).propozycjeZmian[0];
+    const operacja = propozycja.operations.find((operacja) => operacja.propozycjaWplywuId === oryginal?.id)!;
+    await repozytorium.wykonajOperacjeKorekty({ rodzaj: 'review', id, wersja: propozycja.reviewRevision, operacjaId: operacja.id,
+      status: 'EDITED', trescEdytowana: 'Sprawdź restore backupu.' }, kontekst());
+    await zastosuj(repozytorium, id);
+    expect((await repozytorium.pobierzProjekty())[0].nastepnyKrok).toBe('Sprawdź restore backupu.');
+    const wplyw = (await repozytorium.pobierzAnalizyWplywu())[0].propozycje.find((propozycja) => propozycja.id === oryginal?.id);
+    expect(wplyw).toMatchObject({ proponowane: oryginal?.rodzaj === 'RESUME' ? oryginal.proponowane : {},
+      proponowanePoReview: { nastepnyKrok: 'Sprawdź restore backupu.' }, stan: 'APPROVED', uzasadnienie: oryginal?.uzasadnienie });
+  });
+  it('chroni nieaktualne review, zakres projektu i blokuje wpływ korekty poza ChangeSet', async () => {
+    const { repozytorium } = await przygotuj(); const id = await utworz(repozytorium);
+    const propozycja = (await repozytorium.pobierzKorekty()).propozycjeZmian[0];
+    const operacja = { rodzaj: 'review' as const, id, wersja: propozycja.reviewRevision, operacjaId: propozycja.operations[0].id, status: 'ACCEPTED' as const };
+    await repozytorium.wykonajOperacjeKorekty(operacja, kontekst());
+    await expect(repozytorium.wykonajOperacjeKorekty(operacja, kontekst())).rejects.toThrow('Review zmieniło');
+    const analiza = (await repozytorium.pobierzAnalizyWplywu())[0];
+    await expect(repozytorium.wykonajOperacjeUstalen({ rodzaj: 'rozstrzygnij', analizaId: analiza.id,
+      propozycjaId: analiza.propozycje[0].id, zatwierdz: true }, kontekst())).rejects.toThrow('zestaw zmian korekty');
+    await repozytorium.dodajProjekt(utworzProjekt('Inny projekt', 'p2', czas), kontekst());
+    await expect(utworz(repozytorium, korekta({ projektId: 'p2' }))).rejects.toThrow('innego projektu');
+  });
   it('pełne odrzucenie zachowuje propozycje i nie tworzy ChangeSet ani zdarzeń zastosowania', async () => {
     const { repozytorium } = await przygotuj(); const id = await utworz(repozytorium);
     await reviewuj(repozytorium, id, false); await zastosuj(repozytorium, id);
@@ -91,11 +118,11 @@ describe('Korekty, review i atomowy zestaw zmian', () => {
   it('ponowna korekta tej samej informacji i odwrócenie tworzą nowe rekordy', async () => {
     const { repozytorium } = await przygotuj(); const id = await utworz(repozytorium);
     await reviewuj(repozytorium, id, true, 'Nowy cel'); await zastosuj(repozytorium, id);
-    const pierwsza = structuredClone((await repozytorium.pobierzKorekty()).korekty[0]);
+    const pierwsza = structuredClone((await repozytorium.pobierzKorekty()).korekty.find((korekta) => korekta.id === id));
     const drugiId = await utworz(repozytorium, korekta({ nowaWartosc: 'Kolejny cel' }));
     await reviewuj(repozytorium, drugiId); await zastosuj(repozytorium, drugiId);
-    expect((await repozytorium.pobierzKorekty()).korekty[0]).toEqual(pierwsza);
-    expect((await repozytorium.pobierzKorekty()).korekty[1].poprzedniaWartosc).toBe('Nowy cel');
+    expect((await repozytorium.pobierzKorekty()).korekty.find((korekta) => korekta.id === id)).toEqual(pierwsza);
+    expect((await repozytorium.pobierzKorekty()).korekty.find((korekta) => korekta.id === drugiId)?.poprzedniaWartosc).toBe('Nowy cel');
     await repozytorium.wykonajOperacjeKorekty({ rodzaj: 'odwroc', id: drugiId, noweId: 'odwrocenie' }, kontekst());
     expect((await repozytorium.pobierzProjekty())[0].opis).toBe('Kolejny cel');
     await reviewuj(repozytorium, 'odwrocenie'); await zastosuj(repozytorium, 'odwrocenie');
@@ -103,9 +130,10 @@ describe('Korekty, review i atomowy zestaw zmian', () => {
   });
   it('zastępuje decyzję przez istniejący mechanizm; stara treść i provenance pozostają', async () => {
     const { repozytorium } = await przygotuj();
-    await repozytorium.wykonajOperacjeUstalen({ rodzaj: 'utworz', id: 'd1', dane: { tytul: 'Mechanizm A', opis: 'Użyj A', projektIds: ['p1'], typZrodla: 'USER', nazwaZrodla: 'Użytkownik', odniesienieZrodla: '', wpisZrodlowyId: 'w1', notatki: '', powiazaneElementy: [] } }, kontekst());
+    await repozytorium.wykonajOperacjeUstalen({ rodzaj: 'utworz', id: 'd1', dane: { tytul: 'Mechanizm A', opis: 'Użyj A', projektIds: ['p1'], typZrodla: 'USER', nazwaZrodla: 'Użytkownik', odniesienieZrodla: '', wpisZrodlowyId: 'w1', notatki: '', powiazaneElementy: [{ typ: 'WORK_ITEM', id: 'r1', tytul: 'Backup' }] } }, kontekst());
     await repozytorium.wykonajOperacjeUstalen({ rodzaj: 'status', id: 'd1', wersja: 1, status: 'ACCEPTED' }, kontekst());
     const id = await utworz(repozytorium, korekta({ typ: 'TEST_RESULT', typCelu: 'DECISION', celId: 'd1', nowaWartosc: 'Mechanizm A nie spełnia wymagania X.' }));
+    expect((await repozytorium.pobierzAnalizyWplywu())[0].propozycje.filter((propozycja) => propozycja.rodzaj === 'REVIEW' && propozycja.element.id === 'r1')).toHaveLength(1);
     await reviewuj(repozytorium, id); await zastosuj(repozytorium, id);
     expect(await repozytorium.pobierzDecyzje()).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'd1', opis: 'Użyj A', status: 'SUPERSEDED', wpisZrodlowyId: 'w1' }),
@@ -125,7 +153,9 @@ describe('Korekty, review i atomowy zestaw zmian', () => {
     expect(runy).toHaveLength(2); expect(runy.filter((run) => run.preferred)).toHaveLength(1);
     expect(runy.find((run) => run.preferred)).toMatchObject({ correctionId: id, supersedesAnalysisRunId: stara.id, inputText: 'Nie chcę Google Drive.' });
     expect((await repozytorium.pobierzAnalizyWpisow()).find((analiza) => analiza.id === stara.id)).toEqual(stara);
-    await repozytorium.eksportujKopie();
+    const kopia = await repozytorium.eksportujKopie();
+    const { repozytorium: odtworzone } = await przygotuj(JSON.parse(JSON.stringify(kopia)));
+    expect((await odtworzone.eksportujKopie()).data).toEqual(JSON.parse(JSON.stringify(kopia.data)));
   });
   it('błąd nowej analizy zachowuje poprzedni aktualny wynik i korektę', async () => {
     const { repozytorium } = await przygotuj(); const dostawca = new RuleBasedAnalysisProvider();
@@ -191,6 +221,9 @@ describe('Korekty, review i atomowy zestaw zmian', () => {
       (nowa: typeof kopia) => { nowa.data.zdarzeniaDomenowe = []; },
       (nowa: typeof kopia) => { nowa.data.zestawyZmian[0].operations[0].tresc = 'Podmieniona treść'; },
       (nowa: typeof kopia) => { nowa.data.korekty[0] = { ...nowa.data.korekty[0], celId: 'brak' }; },
+      (nowa: typeof kopia) => { nowa.data.analizyWplywu[0].propozycje[0].stan = 'APPROVED'; },
+      (nowa: typeof kopia) => { nowa.data.propozycjeZmian[0].reviewRevision++; },
+      (nowa: typeof kopia) => { nowa.data.zdarzeniaDomenowe[0] = { ...nowa.data.zdarzeniaDomenowe[0], projectIds: ['brak'] }; },
     ]) { const nowa = structuredClone(kopia); zmien(nowa); expect(() => sprawdzKopie(nowa)).toThrow(); await expect(repozytorium.importujKopie(nowa, 'zastap', true)).rejects.toThrow(); }
     expect((await repozytorium.eksportujKopie()).data).toEqual(kopia.data);
   });

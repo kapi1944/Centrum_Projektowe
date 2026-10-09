@@ -48,10 +48,10 @@ const polozenie = { projektId: identyfikator, obszarId: opcjonalne(identyfikator
 const pochodzenie = obiekt({ analizaWpisuId: identyfikator, elementAnalizyId: identyfikator, wpisId: identyfikator });
 const elementPowiazany = obiekt({ typ: etykiety(typyElementow), id: identyfikator, tytul: tekst });
 const punktPowrotu = obiekt({ ostatnioPracowanoNad: tekst, podsumowanieAktualnegoStanu: tekst, nastepnyKrok: tekst });
-const propozycjaPodstawa = { id: identyfikator, tytul: tekst, uzasadnienie: tekst, stan: wybor(['PENDING', 'APPROVED', 'REJECTED']), rozstrzygnieto: opcjonalne(data) };
+const propozycjaPodstawa = { id: identyfikator, tytul: tekst, uzasadnienie: tekst, uzasadnieniePoReview: opcjonalne(tekst), stan: wybor(['PENDING', 'APPROVED', 'REJECTED']), rozstrzygnieto: opcjonalne(data) };
 const propozycja: Walidator = (wartosc) => [
   obiekt({ ...propozycjaPodstawa, rodzaj: wybor(['DECISION_STATUS']), decyzjaId: identyfikator, wersja, poprzedniStatus: etykiety(statusyDecyzji), proponowanyStatus: wybor(['PROPOSED']) }),
-  obiekt({ ...propozycjaPodstawa, rodzaj: wybor(['RESUME']), projektId: identyfikator, poprzednio: punktPowrotu, proponowane: punktPowrotu }),
+  obiekt({ ...propozycjaPodstawa, rodzaj: wybor(['RESUME']), projektId: identyfikator, poprzednio: punktPowrotu, proponowane: punktPowrotu, proponowanePoReview: opcjonalne(punktPowrotu) }),
   obiekt({ ...propozycjaPodstawa, rodzaj: wybor(['REVIEW']), element: elementPowiazany }),
 ].some((sprawdz) => sprawdz(wartosc));
 const metadane: Walidator = (wartosc) => wartosc === null || ['string', 'boolean'].includes(typeof wartosc) || liczba(wartosc)
@@ -215,6 +215,8 @@ function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3) {
         const korekta = znajdz('korekty', przebieg.correctionId);
         const zrodloId = korekta.typCelu === 'ANALYSIS_RUN' ? znajdz('przebiegiAnaliz', korekta.celId).sourceId : korekta.celId;
         if (korekta.status !== 'APPLIED' || !['CAPTURE', 'ANALYSIS_RUN'].includes(korekta.typCelu) || zrodloId !== przebieg.sourceId || !przebieg.inputText) throw new Error('Niepoprawny kontekst korekty przebiegu.');
+        const zmiana = dane.zestawyZmian.find((zestaw) => zestaw.correctionId === korekta.id)?.operations.find((zmiana) => zmiana.rodzaj === 'KOREKTA');
+        if (!zmiana || przebieg.inputText !== (zmiana.status === 'EDITED' ? zmiana.trescEdytowana : zmiana.tresc)) throw new Error('Wejście przebiegu nie odpowiada zatwierdzonej korekcie.');
       } else if (przebieg.inputText !== undefined) throw new Error('Kontekst przebiegu wymaga korekty.');
       if (przebieg.supersedesAnalysisRunId) {
         const poprzedni = znajdz('przebiegiAnaliz', przebieg.supersedesAnalysisRunId);
@@ -254,18 +256,28 @@ function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3) {
       const korekta = znajdz('korekty', propozycja.correctionId);
       const analiza = znajdz('analizyWplywu', propozycja.impactAnalysisId);
       if (propozycja.sourceId !== korekta.id || analiza.zrodlo.typ !== 'CORRECTION' || analiza.zrodlo.id !== korekta.id || !propozycja.expectedRevisions.cel) throw new Error('Niepoprawne pochodzenie propozycji.');
+      if (propozycja.reviewRevision !== 1 + propozycja.operations.reduce((liczba, operacja) => liczba + operacja.historiaReview.length, 0)) throw new Error('Rewizja nie odpowiada historii review.');
+      if (korekta.status === 'REJECTED' && propozycja.operations.some((operacja) => operacja.status !== 'REJECTED')) throw new Error('Odrzucona korekta nie może zawierać przyjętych propozycji.');
       if (propozycja.analysisRunId) znajdz('przebiegiAnaliz', propozycja.analysisRunId);
       unikalne(propozycja.operations.map((operacja) => operacja.id));
       if (propozycja.operations.filter((operacja) => operacja.rodzaj === 'KOREKTA').length !== 1) throw new Error('Brak pojedynczej zmiany korekty.');
       for (const operacja of propozycja.operations) {
         if (operacja.status === 'EDITED' && !operacja.trescEdytowana?.trim()) throw new Error('Brak treści po edycji.');
+        const ostatniReview = operacja.historiaReview.at(-1);
+        if (operacja.status === 'PENDING' ? operacja.historiaReview.length !== 0 : !ostatniReview || ostatniReview.status !== operacja.status || ostatniReview.trescEdytowana !== operacja.trescEdytowana) throw new Error('Stan propozycji nie odpowiada historii review.');
         if (operacja.rodzaj === 'WPLYW' && !analiza.propozycje.some((wplyw) => wplyw.id === operacja.propozycjaWplywuId)) throw new Error('Brak kandydata wpływu.');
+        if (operacja.rodzaj === 'WPLYW') {
+          const wplyw = analiza.propozycje.find((wplyw) => wplyw.id === operacja.propozycjaWplywuId)!;
+          const oczekiwanyStan = korekta.status === 'PROPOSED' ? 'PENDING' : operacja.status === 'REJECTED' ? 'REJECTED' : 'APPROVED';
+          if (wplyw.stan !== oczekiwanyStan) throw new Error('Wpływ nie odpowiada zastosowanemu review korekty.');
+        }
       }
     }
     for (const zestaw of dane.zestawyZmian) {
       const propozycja = znajdz('propozycjeZmian', zestaw.proposalId);
       const przyjete = propozycja.operations.filter((operacja) => ['ACCEPTED', 'EDITED'].includes(operacja.status));
       if (propozycja.correctionId !== zestaw.correctionId || propozycja.id !== zestaw.reviewId || propozycja.reviewRevision !== zestaw.reviewRevision
+        || JSON.stringify(uporzadkuj(propozycja.expectedRevisions)) !== JSON.stringify(uporzadkuj(zestaw.expectedRevisions))
         || !przyjete.length || propozycja.operations.some((operacja) => operacja.status === 'PENDING')
         || JSON.stringify(uporzadkuj(przyjete)) !== JSON.stringify(uporzadkuj(zestaw.operations))) throw new Error('Zestaw nie odpowiada zatwierdzonemu review.');
       for (const operacja of zestaw.operations) {
@@ -275,6 +287,7 @@ function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3) {
     for (const zdarzenie of dane.zdarzeniaDomenowe) {
       const zestaw = znajdz('zestawyZmian', zdarzenie.payload.changeSetId);
       if (zestaw.correctionId !== zdarzenie.aggregateId || zestaw.correctionId !== zdarzenie.payload.correctionId
+        || zdarzenie.occurredAt !== zestaw.appliedAt || zdarzenie.projectIds.length !== 1 || zdarzenie.projectIds[0] !== znajdz('korekty', zestaw.correctionId).projektId
         || !zestaw.operations.some((operacja) => operacja.id === zdarzenie.payload.operationId)) throw new Error('Niepoprawne powiązanie zdarzenia domenowego.');
     }
   }

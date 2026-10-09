@@ -6,7 +6,15 @@ Kontynuujemy jedno local-first Centrum Projektowe. [BASELINE](BASELINE.md) opisu
 
 Docelowa zależność: UI web → przypadki użycia → reguły domeny/porty → adaptery. UI odzwierciedla wynik po trwałym zakończeniu zapisu. Dostawca analizy działa poza transakcją i nie otrzymuje prawa zapisu domeny. Hub jest opcjonalny; lokalny zapis i backup nie wymagają konta ani sieci.
 
-## Własność kontekstów
+## Runtime po Etapie 7
+
+Etap 6 (`0299fd3`) wprowadził wiele AnalysisRun na źródło, jedno preferred, IndexedDB v6 i backup v2. Etap 7 dodaje [pipeline korekt](CORRECTION_PIPELINE.md): Correction → istniejący ChangeProposal → istniejąca AnalizaWplywu → review → ChangeSet → trwałe DomainEventEnvelope i ActivityEvent → bieżąca projekcja. Wykonywalna domena pozostaje lokalna w web; wspólne kontrakty są rozszerzone bez drugich modeli projektu/decyzji.
+
+UnitOfWork otrzymuje port rewizji dla atomowego odczytu, sprawdzenia i zapisu skutków korekty. Correction/ChangeProposal/ChangeSet/DomainEvents mają trwałe magazyny w IndexedDB v7, a backup v3 zachowuje czytniki v1/v2. Historyczne źródła, wyniki, review i provenance pozostają dostępne. Nowy run po zaakceptowanej korekcie jest jawny i nadal wymaga review wyniku. Brak LLM, ProjectSnapshot, Attention Engine, dodatkowych integracji i alternatywnego storage.
+
+Poniższa macierz opisuje historyczny baseline `c0ce40b`; stan runów i korekt został rozszerzony w Etapach 6–7 zgodnie z powyższym opisem.
+
+## Własność kontekstów (baseline)
 
 | Kontekst według ADR 0002 | Własność docelowa | Stan w audytowanym HEAD |
 | --- | --- | --- |

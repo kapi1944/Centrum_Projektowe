@@ -25,6 +25,7 @@ export async function uruchomAnalizePoKorekcie(repozytorium: RepozytoriumProjekt
   const korekta = stan.korekty.find((korekta) => korekta.id === korektaId);
   const zmiana = stan.zestawyZmian.find((zestaw) => zestaw.correctionId === korektaId)?.operations.find((zmiana) => zmiana.rodzaj === 'KOREKTA');
   if (!korekta || korekta.status !== 'APPLIED' || !zmiana || !['CAPTURE', 'ANALYSIS_RUN'].includes(korekta.typCelu)) throw new Error('Nowa analiza wymaga zastosowanej korekty źródła lub analizy.');
+  if (!(await repozytorium.pobierzProjekty()).some((projekt) => projekt.id === korekta.projektId && !projekt.zarchiwizowano)) throw new Error('Projekt jest archiwalny lub nie istnieje.');
   const przebiegi = await repozytorium.pobierzPrzebiegiAnaliz();
   const poprzedni = przebiegi.find((przebieg) => przebieg.id === korekta.celId);
   const wpis = (await repozytorium.pobierzWpisy()).find((wpis) => wpis.id === (korekta.typCelu === 'ANALYSIS_RUN' ? poprzedni?.sourceId : korekta.celId));

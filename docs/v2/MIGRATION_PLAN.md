@@ -1,6 +1,14 @@
 # Plan dalszej migracji Centrum Projektowego 2.0
 
-## Stan już osiągnięty
+## Stan osiągnięty po Etapie 7
+
+Etap 6 zrealizował trwałe wersjonowane runy: IndexedDB v6, backup v2, wiele analiz na źródło i jedno preferred. Etap 7 dodaje [korekty i rewizje planu](CORRECTION_PIPELINE.md), review i atomowy ChangeSet przez istniejący UnitOfWork, z trwałymi DomainEvents i czytelnym ActivityEvent. Jest to wdrożenie pipeline dla korekt, nie migracja wszystkich dawnych workflow do ChangeSet ani pełny event sourcing.
+
+Migracja v6 → v7 tworzy wyłącznie cztery nowe puste magazyny; nie przepisuje starych AnalysisRun, review, Capture ani decyzji. Backup v3 importuje v1/v2 bez utraty starych danych. Testy pokrywają upgrade v6, stare backupy → Correction → eksport → restore, rollback i rewizje. Dowód w fake-indexeddb/jsdom nie zastępuje migracji rzeczywistych danych w przeglądarce; downgrade nowego formatu do v1 nie jest zapewniony.
+
+Krok 3 poniżej został zrealizowany dla istniejących analiz; kroki 4–5 są wdrożone dla korekt w opisanym zakresie. Snapshoty, sygnały uwagi, AI, integracje i inne adaptery pozostają poza Etapem 7. Poniższy baseline i protokół zachowują historyczny punkt odniesienia Etapu 5.
+
+## Stan już osiągnięty w baseline Etapu 5
 
 Punktem wyjścia jest kod `c0ce40b`, opisany w [BASELINE](BASELINE.md). ADR 0001–0007, siedem workspaces, CI, Hub health, deklaracje v2, sześć portów v1, dwa use cases, częściowy UnitOfWork i adapter widoków v1 ↔ v2 już istnieją. Nie cofamy ich ani nie wykonujemy ponownie reorganizacji. IndexedDB pozostaje v5, format kopii pozostaje 1.
 

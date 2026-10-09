@@ -7,6 +7,11 @@ import { priorytetyPracy } from '../domain/realizacja';
 import { statusyDecyzji } from '../domain/ustalenia';
 import { formatujDate } from '../shared/formatujDate';
 
+function opisWartosci(wartosc: string | undefined, pole?: string) {
+  return pole === 'priorytet' && wartosc && Object.hasOwn(priorytetyPracy, wartosc)
+    ? priorytetyPracy[wartosc as keyof typeof priorytetyPracy] : wartosc;
+}
+
 export function Korekty({ dane, wykonaj, analizuj }: { dane: DaneKopii; wykonaj: (operacja: OperacjaKorekty) => Promise<void>; analizuj: (id: string) => Promise<void> }) {
   const { projektId } = useParams();
   const projekt = dane.projekty.find((projekt) => projekt.id === projektId);
@@ -63,7 +68,7 @@ export function Korekty({ dane, wykonaj, analizuj }: { dane: DaneKopii; wykonaj:
         }}>{Object.entries(typyCelow).map(([wartosc, etykieta]) => <option key={wartosc} value={wartosc}>{etykieta}</option>)}</select></label>
         <label>Cel korekty <select value={celId} onChange={(zdarzenie) => ustawCel(zdarzenie.target.value)}>{cele.length ? cele.map((cel) => <option key={cel.id} value={cel.id}>{cel.nazwa}</option>) : <option value="">Brak dostępnych rekordów</option>}</select></label>
         {Object.keys(polaKorekty[typCelu]).length > 0 && <label>Pole <select value={pole} onChange={(zdarzenie) => { ustawPole(zdarzenie.target.value); ustawWartosc(''); }}>{Object.entries(polaKorekty[typCelu]).map(([wartosc, etykieta]) => <option key={wartosc} value={wartosc}>{etykieta}</option>)}</select></label>}
-        <h2>PRZED</h2><p className="surowy-wpis">{przed || 'Brak poprzedniej wartości.'}</p>
+        <h2>PRZED</h2><p className="surowy-wpis">{opisWartosci(przed, pole) || 'Brak poprzedniej wartości.'}</p>
         <label>PO {pole === 'priorytet' ? <select required value={nowaWartosc} onChange={(zdarzenie) => ustawWartosc(zdarzenie.target.value)}><option value="">Wybierz priorytet</option>{Object.entries(priorytetyPracy).map(([wartosc, etykieta]) => <option key={wartosc} value={wartosc}>{etykieta}</option>)}</select>
           : <textarea required value={nowaWartosc} onChange={(zdarzenie) => ustawWartosc(zdarzenie.target.value)} />}</label>
         <label>Opis korekty <textarea required value={opis} onChange={(zdarzenie) => ustawOpis(zdarzenie.target.value)} /></label>
@@ -81,8 +86,8 @@ export function Korekty({ dane, wykonaj, analizuj }: { dane: DaneKopii; wykonaj:
       return <section key={korekta.id} aria-label={`${typyKorekt[korekta.typ]}: ${korekta.opis}`}>
         <h3>{typyKorekt[korekta.typ]}</h3><p>{korekta.opis}</p>
         <p>Dotyczy: {typyCelow[korekta.typCelu]} · {korekta.celId}</p>
-        <h4>PRZED</h4><p className="surowy-wpis">{korekta.poprzedniaWartosc || 'Brak poprzedniej wartości.'}</p>
-        <h4>PO</h4><p className="surowy-wpis">{korekta.nowaWartosc ?? korekta.opis}</p>
+        <h4>PRZED</h4><p className="surowy-wpis">{opisWartosci(korekta.poprzedniaWartosc, korekta.pole) || 'Brak poprzedniej wartości.'}</p>
+        <h4>PO</h4><p className="surowy-wpis">{opisWartosci(korekta.nowaWartosc, korekta.pole) ?? korekta.opis}</p>
         <p>Powód: {korekta.powod || 'Nie podano.'}</p><p>Źródło: {korekta.utworzyl} · {korekta.odniesienieZrodla || 'Korekta użytkownika'} · {formatujDate(korekta.utworzono)}</p>
         <p>{korekta.status === 'PROPOSED' ? 'Oczekuje na zastosowanie' : korekta.status === 'APPLIED' ? 'Zastosowana' : 'Odrzucona'}</p>
         <h4>Potencjalny wpływ i propozycje zmian</h4>
@@ -94,7 +99,7 @@ export function Korekty({ dane, wykonaj, analizuj }: { dane: DaneKopii; wykonaj:
             {wplyw && <p>{wplyw.uzasadnienie}</p>}
             {wplyw?.rodzaj === 'DECISION_STATUS' && <p>Zmiana statusu: {statusyDecyzji[wplyw.poprzedniStatus]} → {statusyDecyzji[wplyw.proponowanyStatus]}. Edycja zmienia uzasadnienie sprawdzenia.</p>}
             {wplyw?.rodzaj === 'RESUME' && <p>Następny krok: {wplyw.poprzednio.nastepnyKrok || 'Brak'} → {wplyw.proponowane.nastepnyKrok}</p>}
-            <p>{etykietyReview[zmiana.status]}</p><p className="surowy-wpis">{zmiana.trescEdytowana ?? zmiana.tresc}</p>
+            <p>{etykietyReview[zmiana.status]}</p><p className="surowy-wpis">{opisWartosci(zmiana.trescEdytowana ?? zmiana.tresc, zmiana.rodzaj === 'KOREKTA' ? korekta.pole : undefined)}</p>
             {korekta.status === 'PROPOSED' && <fieldset disabled={zajety || !!projekt.zarchiwizowano}>
               <legend>Weryfikacja propozycji</legend>
               <button onClick={() => void obsluz(() => wykonaj({ rodzaj: 'review', id: korekta.id, wersja: propozycja.reviewRevision, operacjaId: zmiana.id, status: 'ACCEPTED' }), 'Zaakceptowano propozycję.')}>Zaakceptuj</button>
@@ -109,7 +114,7 @@ export function Korekty({ dane, wykonaj, analizuj }: { dane: DaneKopii; wykonaj:
           </li>;
         })}</ul>
         {korekta.status === 'PROPOSED' && <button disabled={zajety || !!projekt.zarchiwizowano || propozycja.operations.some((zmiana) => zmiana.status === 'PENDING')} onClick={() => void obsluz(() => wykonaj({ rodzaj: 'zastosuj', id: korekta.id, wersja: propozycja.reviewRevision, idempotencyKey: `korekta:${korekta.id}` }), 'Review zastosowane atomowo.')}>Zastosuj zatwierdzone zmiany</button>}
-        {zestaw && <p>Zestaw zmian: {zestaw.id} · {formatujDate(zestaw.appliedAt)} · Zastosowana treść: {zestaw.operations.find((zmiana) => zmiana.rodzaj === 'KOREKTA')?.trescEdytowana ?? zestaw.operations.find((zmiana) => zmiana.rodzaj === 'KOREKTA')?.tresc}</p>}
+        {zestaw && <p>Zestaw zmian: {zestaw.id} · {formatujDate(zestaw.appliedAt)} · Zastosowana treść: {opisWartosci(zestaw.operations.find((zmiana) => zmiana.rodzaj === 'KOREKTA')?.trescEdytowana ?? zestaw.operations.find((zmiana) => zmiana.rodzaj === 'KOREKTA')?.tresc, korekta.pole)}</p>}
         {zestaw?.operations.some((zmiana) => zmiana.rodzaj === 'KOREKTA') && korekta.pole && <button disabled={zajety || !!projekt.zarchiwizowano} onClick={() => void obsluz(() => wykonaj({ rodzaj: 'odwroc', id: korekta.id, noweId: crypto.randomUUID() }), 'Utworzono nową korektę odwracającą. Wymaga review.')}>Utwórz korektę odwracającą</button>}
         {zestaw?.operations.some((zmiana) => zmiana.rodzaj === 'KOREKTA') && ['CAPTURE', 'ANALYSIS_RUN'].includes(korekta.typCelu) && <>
           <button disabled={zajety || !!projekt.zarchiwizowano} onClick={() => void obsluz(() => analizuj(korekta.id), 'Nowy przebieg analizy zapisany jako aktualny. Wynik wymaga review.')}>Uruchom nową analizę i oznacz jako aktualną</button>

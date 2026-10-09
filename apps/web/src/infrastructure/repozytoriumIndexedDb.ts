@@ -290,6 +290,10 @@ export function utworzRepozytoriumIndexedDb(
     wykonajOperacjePrzebiegu: (operacja, kontekst) => zapisz<void>((transakcja, zakoncz, _odczytajProjekt, przerwij) => {
       odczytajDane(transakcja, (dane) => {
         try {
+          if (operacja.rodzaj === 'rozpocznij' && operacja.correctionId) {
+            const korekta = dane.korekty.find((korekta) => korekta.id === operacja.correctionId);
+            if (!korekta || !dane.projekty.some((projekt) => projekt.id === korekta.projektId && !projekt.zarchiwizowano)) throw new Error('Projekt korekty jest archiwalny lub nie istnieje.');
+          }
           const wynik = wykonajOperacjePrzebiegu(dane.przebiegiAnaliz, dane.wpisy, operacja, kontekst);
           dane.przebiegiAnaliz = [...dane.przebiegiAnaliz.filter((przebieg) => !wynik.zapisy.some((nowy) => nowy.id === przebieg.id)), ...wynik.zapisy];
           sprawdzDaneKopii(dane);

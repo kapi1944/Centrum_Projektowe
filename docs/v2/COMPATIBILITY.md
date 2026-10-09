@@ -2,7 +2,25 @@
 
 Stan kodu: `c0ce40b`, 2026-10-09. „2.0” oznacza istniejący fundament i przyjęty cel, nie ukończoną migrację. Wszystkie momenty poniżej są **warunkami przyszłych etapów**, nie terminami i nie zgodą na ich rozpoczęcie.
 
-## Macierz zgodności
+## Aktualizacja zgodności — Etapy 6–7
+
+[Przebiegi analiz](ANALYSIS_RUNS.md) zachowują stare ID, wyniki, review i provenance, obsługując wiele runów i jedno preferred. [Korekty](CORRECTION_PIPELINE.md) rozszerzają istniejące PropozycjaZmiany/ZestawZmian i AnalizaWplywu; ich nowe rekordy nie mają bezstratnego odpowiednika w backupie v1. Adapter widoków v1 ↔ v2 pozostaje bez zmian i odmawia spłaszczenia nowych danych.
+
+| Element | Aktualna zgodność |
+| --- | --- |
+| IndexedDB | v7; upgrade v6 dodaje korekty, propozycjeZmian, zestawyZmian i zdarzeniaDomenowe bez zmiany starych rekordów |
+| Backup v3 | 16 magazynów, spójny odczyt i atomowy import z walidacją relacji oraz audytu korekty |
+| Backup v2 / v1 | Nadal importowane; nowe magazyny puste, runy v2 zachowane, analizy v1 migrowane do LEGACY_IMPORTED |
+| Review | Stare review analiz pozostaje; propozycje korekt mają osobną historię PENDING/ACCEPTED/EDITED/REJECTED i reviewRevision |
+| ImpactAnalysis | Ten sam relacyjny mechanizm; nowe źródło CORRECTION, kandydaci dla istniejących encji; wpływ korekty stosowany wyłącznie przez jej ChangeSet |
+| UnitOfWork / zdarzenia | Port rewizji atomowo zapisuje skutki, ChangeSet, DomainEventEnvelope i ActivityEvent; stara historia nie staje się fikcyjnym ChangeSet |
+| UI / routing | Dotychczasowe adresy pozostają; `/projekty/:projektId/korekty` udostępnia Delta, review i jawny nowy run |
+
+Testy starego formatu zachowują sprawdzenia danych i relacji; zmienione oczekiwania wersji/nowych pustych magazynów odzwierciedlają rozszerzenie schematu. Restore v3 zachowuje Correction, ChangeSet i zdarzenia. Nie ma automatycznego downgrade do starej aplikacji, dowodu produkcyjnej migracji ani semantycznej pamięci odrzuceń.
+
+Poniższa macierz dokumentuje historyczny baseline `c0ce40b`, sprzed Etapów 6–7; bieżący zakres migracji jest opisany powyżej.
+
+## Macierz zgodności (baseline)
 
 | ELEMENT V1 | STAN 2.0 | STRATEGIA ZGODNOŚCI | MOMENT MIGRACJI | WARUNEK USUNIĘCIA ADAPTERA |
 | --- | --- | --- | --- | --- |

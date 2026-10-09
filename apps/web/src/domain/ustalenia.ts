@@ -43,12 +43,13 @@ interface PodstawaPropozycji {
   id: string;
   tytul: string;
   uzasadnienie: string;
+  uzasadnieniePoReview?: string;
   stan: 'PENDING' | 'APPROVED' | 'REJECTED';
   rozstrzygnieto?: string;
 }
 export type PropozycjaWplywu = PodstawaPropozycji & (
   { rodzaj: 'DECISION_STATUS'; decyzjaId: string; wersja: number; poprzedniStatus: StatusDecyzji; proponowanyStatus: 'PROPOSED' }
-  | { rodzaj: 'RESUME'; projektId: string; poprzednio: PunktPowrotu; proponowane: PunktPowrotu }
+  | { rodzaj: 'RESUME'; projektId: string; poprzednio: PunktPowrotu; proponowane: PunktPowrotu; proponowanePoReview?: PunktPowrotu }
   | { rodzaj: 'REVIEW'; element: PowiazanyElement }
 );
 export interface AnalizaWplywu {
@@ -198,7 +199,7 @@ export function wykonajOperacjeUstalen(stan: StanUstalen, operacja: OperacjaUsta
         if (propozycja.rodzaj === 'RESUME') {
           const odczytany = projekt(propozycja.projektId);
           if (JSON.stringify(punktPowrotu(odczytany)) !== JSON.stringify(propozycja.poprzednio)) throw new Error('Punkt powrotu zmienił się. Odrzuć tę propozycję i sprawdź wpływ ponownie.');
-          const zmiana = zmienProjekt(odczytany, { rodzaj: 'punktPowrotu', dane: propozycja.proponowane }, { ...kontekst, idZdarzenia: `${kontekst.idZdarzenia}:punkt` });
+          const zmiana = zmienProjekt(odczytany, { rodzaj: 'punktPowrotu', dane: propozycja.proponowanePoReview ?? propozycja.proponowane }, { ...kontekst, idZdarzenia: `${kontekst.idZdarzenia}:punkt` });
           wynik.projekty.push(zmiana.projekt);
           wynik.zdarzenia.push(zmiana.zdarzenie);
         }

@@ -85,14 +85,16 @@ export function wykonajKorekte(obecne: DaneKopii, operacja: OperacjaKorekty, kon
       && !(wplyw.rodzaj === 'RESUME' && korekta.typCelu === 'RESUME' && wplyw.projektId === korekta.celId));
     // Rozszerzamy tę samą analizę wpływu o istniejące encje pracy i analizy.
     for (const [typ, rekordy] of [['WORK_ITEM', dane.elementyPracy], ['QUESTION', dane.pytania], ['BLOCKER', dane.blokady]] as const) {
-      for (const rekord of rekordy.filter((rekord) => rekord.projektId === korekta.projektId)) analiza.propozycje.push({
+      for (const rekord of rekordy.filter((rekord) => rekord.projektId === korekta.projektId
+        && !analiza.propozycje.some((propozycja) => propozycja.rodzaj === 'REVIEW' && propozycja.element.typ === typ && propozycja.element.id === rekord.id))) analiza.propozycje.push({
         id: `${analiza.id}:cel:${typ}:${rekord.id}`, rodzaj: 'REVIEW', stan: 'PENDING',
         tytul: `Sprawdź: ${typyCelow[typ]} — ${'tytul' in rekord ? rekord.tytul : rekord.pytanie}`,
         uzasadnienie: 'Wspólny projekt z korektą; kandydat do sprawdzenia przez użytkownika.',
         element: { typ, id: rekord.id, tytul: 'tytul' in rekord ? rekord.tytul : rekord.pytanie },
       });
     }
-    for (const przebieg of dane.przebiegiAnaliz.filter((przebieg) => dane.wpisy.some((wpis) => wpis.id === przebieg.sourceId && wpis.projektId === korekta.projektId))) {
+    for (const przebieg of dane.przebiegiAnaliz.filter((przebieg) => dane.wpisy.some((wpis) => wpis.id === przebieg.sourceId && wpis.projektId === korekta.projektId)
+      && !analiza.propozycje.some((propozycja) => propozycja.rodzaj === 'REVIEW' && propozycja.element.typ === 'ANALYSIS_RUN' && propozycja.element.id === przebieg.id))) {
       analiza.propozycje.push({ id: `${analiza.id}:run:${przebieg.id}`, rodzaj: 'REVIEW', stan: 'PENDING',
         tytul: 'Sprawdź powiązany przebieg analizy', uzasadnienie: 'Wspólny projekt z korektą.',
         element: { typ: 'ANALYSIS_RUN', id: przebieg.id, tytul: 'Przebieg analizy' } });
@@ -135,7 +137,7 @@ export function wykonajKorekte(obecne: DaneKopii, operacja: OperacjaKorekty, kon
     if (!['ACCEPTED', 'EDITED', 'REJECTED'].includes(operacja.status)) throw new Error('Niepoprawny stan review.');
     const zmiana = propozycja.operations.find((zmiana) => zmiana.id === operacja.operacjaId);
     if (!zmiana) throw new Error('Propozycja nie istnieje.');
-    if (operacja.status === 'EDITED' && !operacja.trescEdytowana?.trim()) throw new Error('Edytować można wartość korekty lub następny krok punktu powrotu.');
+    if (operacja.status === 'EDITED' && !operacja.trescEdytowana?.trim()) throw new Error('Treść po edycji nie może być pusta.');
     dane.propozycjeZmian = dane.propozycjeZmian.map((obecna) => obecna.id !== propozycja.id ? obecna : { ...propozycja,
       reviewRevision: propozycja.reviewRevision + 1, operations: propozycja.operations.map((obecna) => obecna.id !== zmiana.id ? obecna : {
         ...zmiana, status: operacja.status, trescEdytowana: operacja.status === 'EDITED' ? operacja.trescEdytowana : undefined,
@@ -180,9 +182,10 @@ export function wykonajKorekte(obecne: DaneKopii, operacja: OperacjaKorekty, kon
     if (zmiana.rodzaj === 'WPLYW') {
       const analiza = dane.analizyWplywu.find((analiza) => analiza.id === propozycja.impactAnalysisId)!;
       const wplyw = analiza.propozycje.find((wplyw) => wplyw.id === zmiana.propozycjaWplywuId)!;
-      if (zmiana.status === 'EDITED' && wplyw.rodzaj === 'RESUME') wplyw.proponowane = { ...wplyw.proponowane, nastepnyKrok: zmiana.trescEdytowana! };
-      else if (zmiana.status === 'EDITED') wplyw.uzasadnienie = zmiana.trescEdytowana!;
-      const przed = structuredClone(stanUstalen());
+      const przed = structuredClone(wplyw.rodzaj === 'DECISION_STATUS' ? dane.decyzje.find((decyzja) => decyzja.id === wplyw.decyzjaId)
+        : wplyw.rodzaj === 'RESUME' ? dane.projekty.find((projekt) => projekt.id === wplyw.projektId) : wplyw);
+      if (zmiana.status === 'EDITED' && wplyw.rodzaj === 'RESUME') wplyw.proponowanePoReview = { ...wplyw.proponowane, nastepnyKrok: zmiana.trescEdytowana! };
+      else if (zmiana.status === 'EDITED') wplyw.uzasadnieniePoReview = zmiana.trescEdytowana!;
       const wynik = wykonajOperacjeUstalen(stanUstalen(), { rodzaj: 'rozstrzygnij', analizaId: analiza.id, propozycjaId: wplyw.id,
         zatwierdz: zmiana.status !== 'REJECTED' }, { ...kontekst, idZdarzenia: `${kontekst.idZdarzenia}:${zmiana.id}` });
       for (const nowa of wynik.decyzje) dane.decyzje = [...dane.decyzje.filter((obecna) => obecna.id !== nowa.id), nowa];
