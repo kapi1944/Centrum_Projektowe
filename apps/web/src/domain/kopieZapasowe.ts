@@ -7,7 +7,7 @@ import type { AnalizaWpisu } from './analizaWpisu';
 import { statusyObszaru, statusyEtapu, statusyPracy, typyPracy, priorytetyPracy, statusyPytania, statusyBlokady, wagiBlokady } from './realizacja';
 import type { StanRealizacji } from './realizacja';
 import { migrujAnalize, type PrzebiegAnalizyWpisu } from './przebiegiAnaliz';
-import { typyKorekt, typyCelow, odczytajCel, type StanKorekt } from './korekty';
+import { typyKorekt, typyCelow, odczytajCel, type StanKorekt, type KorektaUzytkownika, type ZdarzenieKorekty, type ZestawZmianKorekty } from './korekty';
 
 export interface DaneKopii extends StanRealizacji, StanKorekt {
   projekty: Projekt[]; wpisy: Wpis[]; zdarzenia: ZdarzenieAktywnosci[];
@@ -143,7 +143,7 @@ function sprawdzDane(wartosc: unknown, wersjaKopii: 1 | 2 | 3) {
   }
   sprawdzRelacje(dane, wersjaKopii);
 }
-function unikalne(wartosci: string[]) {
+function unikalne(wartosci: readonly string[]) {
   if (new Set(wartosci).size !== wartosci.length) throw new Error('Kopia zawiera powtórzone identyfikatory lub klucze unikalne.');
 }
 function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3) {
@@ -286,9 +286,17 @@ function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3) {
     }
     for (const zdarzenie of dane.zdarzeniaDomenowe) {
       const zestaw = znajdz('zestawyZmian', zdarzenie.payload.changeSetId);
+      const korekta = znajdz('korekty', zestaw.correctionId);
+      unikalne(zdarzenie.projectIds);
+      zdarzenie.projectIds.forEach((id) => znajdz('projekty', id));
       if (zestaw.correctionId !== zdarzenie.aggregateId || zestaw.correctionId !== zdarzenie.payload.correctionId
-        || zdarzenie.occurredAt !== zestaw.appliedAt || zdarzenie.projectIds.length !== 1 || zdarzenie.projectIds[0] !== znajdz('korekty', zestaw.correctionId).projektId
+        || zdarzenie.occurredAt !== zestaw.appliedAt || !zdarzenie.projectIds.includes(korekta.projektId)
         || !zestaw.operations.some((operacja) => operacja.id === zdarzenie.payload.operationId)) throw new Error('Niepoprawne powiązanie zdarzenia domenowego.');
+      const operacja = zestaw.operations.find((operacja) => operacja.id === zdarzenie.payload.operationId)!;
+      const oczekiwanyTyp = operacja.rodzaj === 'WPLYW' ? 'CORRECTION_IMPACT_APPLIED'
+        : korekta.pole ? 'CORRECTION_VALUE_CHANGED' : 'CORRECTION_KNOWLEDGE_RETAINED';
+      if (zdarzenie.eventType !== oczekiwanyTyp) throw new Error(`Zdarzenie ${zdarzenie.id}: typ nie odpowiada operacji korekty.`);
+      if (zdarzenie.eventType === 'CORRECTION_VALUE_CHANGED') sprawdzHistorieZmianyWartosci(dane, zdarzenie, korekta, zestaw);
     }
   }
   const magazynyEncji = { PROJECT: 'projekty', CAPTURE: 'wpisy', DECISION: 'decyzje', IMPACT: 'analizyWplywu', WORK_ITEM: 'elementyPracy', QUESTION: 'pytania', BLOCKER: 'blokady', CORRECTION: 'korekty' } as const;
@@ -296,6 +304,45 @@ function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3) {
     if (zdarzenie.projektId) znajdz('projekty', zdarzenie.projektId);
     zdarzenie.projektIds?.forEach((id) => znajdz('projekty', id));
     if (zdarzenie.encjaId) znajdz(magazynyEncji[zdarzenie.typEncji], zdarzenie.encjaId);
+  }
+}
+export function sprawdzHistorieZmianyWartosci(dane: DaneKopii, zdarzenie: ZdarzenieKorekty,
+  korekta: KorektaUzytkownika, zestaw: ZestawZmianKorekty): void {
+  function blad(powod: string): never { throw new Error(`Zdarzenie ${zdarzenie.id}: niepoprawna historia zmiany wartości — ${powod}.`); }
+  if (!schematDanych.zdarzeniaDomenowe.sprawdz(zdarzenie)) blad('niepoprawna struktura zdarzenia');
+  const magazyny = { PROJECT: 'projekty', RESUME: 'projekty', DECISION: 'decyzje', WORK_ITEM: 'elementyPracy', QUESTION: 'pytania', BLOCKER: 'blokady' } as const;
+  if (!Object.hasOwn(magazyny, korekta.typCelu) || !korekta.pole) blad('cel nie obsługuje zmiany pola');
+  const magazyn = magazyny[korekta.typCelu as keyof typeof magazyny];
+  const { before: przed, after: po } = zdarzenie.payload;
+  if (!schematDanych[magazyn].sprawdz(przed)) blad('PRZED wymaga poprawnego rekordu celu');
+  if (!schematDanych[magazyn].sprawdz(po)) blad('PO wymaga poprawnego rekordu celu');
+  const rekordPrzed = przed as Record<string, unknown>, rekordPo = po as Record<string, unknown>;
+  const operacja = zestaw.operations.find((operacja) => operacja.id === zdarzenie.payload.operationId && operacja.rodzaj === 'KOREKTA');
+  if (!operacja || zdarzenie.payload.correctionId !== korekta.id || zdarzenie.payload.changeSetId !== zestaw.id
+    || zdarzenie.aggregateId !== korekta.id || zdarzenie.eventType !== 'CORRECTION_VALUE_CHANGED') blad('niezgodne powiązanie operacji');
+  let oczekiwanePrzed: unknown;
+  try { oczekiwanePrzed = JSON.parse(zestaw.expectedRevisions.cel); } catch { blad('brak poprawnej rewizji celu'); }
+  if (JSON.stringify(uporzadkuj(przed)) !== JSON.stringify(uporzadkuj(oczekiwanePrzed))
+    || rekordPrzed.id !== korekta.celId || String(rekordPrzed[korekta.pole] ?? '') !== korekta.poprzedniaWartosc) blad('PRZED nie odpowiada korekcie i rewizji celu');
+  if (rekordPo[korekta.pole] !== (operacja.status === 'EDITED' ? operacja.trescEdytowana : operacja.tresc)) blad('PO nie odpowiada zatwierdzonej treści');
+  if (korekta.typCelu === 'DECISION') {
+    const decyzjaPrzed = przed as Decyzja, decyzjaPo = po as Decyzja;
+    const nastepca = dane.decyzje.find((decyzja) => decyzja.id === decyzjaPo.id);
+    if (decyzjaPo.id !== `decyzja-${korekta.id}` || !nastepca || decyzjaPo.status !== 'ACCEPTED'
+      || dane.decyzje.find((decyzja) => decyzja.id === korekta.celId)?.zastapionaPrzezId !== decyzjaPo.id) blad('PO nie wskazuje następcy decyzji');
+    const projekty = [...new Set([...decyzjaPrzed.projektIds, ...decyzjaPo.projektIds])];
+    if (projekty.length !== zdarzenie.projectIds.length || !projekty.every((id) => zdarzenie.projectIds.includes(id)
+      && dane.projekty.some((projekt) => projekt.id === id))
+      || !decyzjaPrzed.projektIds.every((id) => decyzjaPo.projektIds.includes(id))
+      || JSON.stringify([...decyzjaPo.projektIds].sort()) !== JSON.stringify([...nastepca.projektIds].sort())) blad('niezgodny zakres projektów decyzji');
+    for (const decyzja of [decyzjaPrzed, decyzjaPo]) {
+      if (decyzja.wpisZrodlowyId && !dane.wpisy.some((wpis) => wpis.id === decyzja.wpisZrodlowyId)) blad('brak źródłowego wpisu decyzji');
+      if (decyzja.analizaWpisuId && !dane.analizyWpisow.some((analiza) => analiza.id === decyzja.analizaWpisuId
+        && analiza.elementy.some((element) => element.id === decyzja.elementAnalizyId))) blad('brak źródłowego elementu analizy');
+    }
+  } else {
+    if (rekordPo.id !== korekta.celId) blad('PO wskazuje inny cel');
+    if (zdarzenie.projectIds.length !== 1 || zdarzenie.projectIds[0] !== korekta.projektId) blad('niezgodny projekt celu');
   }
 }
 export function sprawdzKopie(wartosc: unknown): asserts wartosc is DowolnaKopia {

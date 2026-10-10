@@ -1,5 +1,6 @@
 import type { KorektaUzytkownika, PropozycjaZmiany, ZestawZmian, KopertaZdarzeniaDomenowego } from '@centrum-projektowe/domain';
 import type { DaneKopii } from './kopieZapasowe';
+import { sprawdzHistorieZmianyWartosci } from './kopieZapasowe';
 import type { KontekstZapisu } from './modele';
 import { wykonajOperacjeUstalen } from './ustalenia';
 import type { StatusReview } from './analizaWpisu';
@@ -66,9 +67,15 @@ function rewizjaCelu(dane: DaneKopii, korekta: KorektaUzytkownika): string { ret
 export function wykonajKorekte(obecne: DaneKopii, operacja: OperacjaKorekty, kontekst: KontekstZapisu): DaneKopii {
   const dane = structuredClone(obecne);
   const stanUstalen = () => ({ projekty: dane.projekty, wpisy: dane.wpisy, decyzje: dane.decyzje, analizy: dane.analizyWplywu });
-  function aktywnosc(korekta: KorektaUzytkownika, typ: 'CORRECTION_CREATED' | 'CORRECTION_REVIEWED' | 'CORRECTION_APPLIED', tytul: string) {
-    dane.zdarzenia.push({ id: kontekst.idZdarzenia, projektId: korekta.projektId, typEncji: 'CORRECTION', encjaId: korekta.id,
+  function aktywnosc(korekta: KorektaUzytkownika, typ: 'CORRECTION_CREATED' | 'CORRECTION_REVIEWED' | 'CORRECTION_APPLIED', tytul: string, projektIds = projektyKorekty(korekta)) {
+    for (const projektId of projektIds) dane.zdarzenia.push({
+      id: projektId === korekta.projektId ? kontekst.idZdarzenia : `${kontekst.idZdarzenia}:projekt:${projektId}`,
+      projektId, typEncji: 'CORRECTION', encjaId: korekta.id, metadane: { operacjaZrodlowaId: kontekst.idZdarzenia },
       typZdarzenia: typ, tytul, utworzono: kontekst.czas, zrodlo: kontekst.zrodlo });
+  }
+  function projektyKorekty(korekta: KorektaUzytkownika): string[] {
+    return korekta.typCelu === 'DECISION'
+      ? [...new Set(dane.decyzje.find((decyzja) => decyzja.id === korekta.celId)!.projektIds)] : [korekta.projektId];
   }
   function utworz(nowe: DaneKorekty) {
     const projekt = dane.projekty.find((projekt) => projekt.id === nowe.projektId && !projekt.zarchiwizowano);
@@ -79,22 +86,27 @@ export function wykonajKorekte(obecne: DaneKopii, operacja: OperacjaKorekty, kon
       utworzono: kontekst.czas, utworzyl: kontekst.zrodlo.nazwa, typZrodla: kontekst.zrodlo.typ };
     dane.korekty.push(korekta);
     const wynik = wykonajOperacjeUstalen(stanUstalen(), { rodzaj: 'analizuj', zrodlo: { typ: 'CORRECTION', id: korekta.id },
-      projektIdsKorekty: [korekta.projektId] }, kontekst);
+      projektIdsKorekty: projektyKorekty(korekta) }, kontekst);
     const analiza = wynik.analizy[0];
     analiza.propozycje = analiza.propozycje.filter((wplyw) => !(wplyw.rodzaj === 'DECISION_STATUS' && korekta.typCelu === 'DECISION' && wplyw.decyzjaId === korekta.celId)
       && !(wplyw.rodzaj === 'RESUME' && korekta.typCelu === 'RESUME' && wplyw.projektId === korekta.celId));
     // Rozszerzamy tę samą analizę wpływu o istniejące encje pracy i analizy.
     for (const [typ, rekordy] of [['WORK_ITEM', dane.elementyPracy], ['QUESTION', dane.pytania], ['BLOCKER', dane.blokady]] as const) {
-      for (const rekord of rekordy.filter((rekord) => rekord.projektId === korekta.projektId
-        && !analiza.propozycje.some((propozycja) => propozycja.rodzaj === 'REVIEW' && propozycja.element.typ === typ && propozycja.element.id === rekord.id))) analiza.propozycje.push({
+      for (const rekord of rekordy.filter((rekord) => korekta.typCelu === 'DECISION'
+        ? dane.decyzje.find((decyzja) => decyzja.id === korekta.celId)!.powiazaneElementy.some((element) => element.typ === typ && element.id === rekord.id)
+          || ('decyzjaIds' in rekord && rekord.decyzjaIds.includes(korekta.celId))
+        : rekord.projektId === korekta.projektId).filter((rekord) =>
+        !analiza.propozycje.some((propozycja) => propozycja.rodzaj === 'REVIEW' && propozycja.element.typ === typ && propozycja.element.id === rekord.id))) analiza.propozycje.push({
         id: `${analiza.id}:cel:${typ}:${rekord.id}`, rodzaj: 'REVIEW', stan: 'PENDING',
         tytul: `Sprawdź: ${typyCelow[typ]} — ${'tytul' in rekord ? rekord.tytul : rekord.pytanie}`,
-        uzasadnienie: 'Wspólny projekt z korektą; kandydat do sprawdzenia przez użytkownika.',
+        uzasadnienie: korekta.typCelu === 'DECISION' ? 'Jawne powiązanie z korygowaną decyzją; kandydat do sprawdzenia.' : 'Wspólny projekt z korektą; kandydat do sprawdzenia przez użytkownika.',
         element: { typ, id: rekord.id, tytul: 'tytul' in rekord ? rekord.tytul : rekord.pytanie },
       });
     }
-    for (const przebieg of dane.przebiegiAnaliz.filter((przebieg) => dane.wpisy.some((wpis) => wpis.id === przebieg.sourceId && wpis.projektId === korekta.projektId)
-      && !analiza.propozycje.some((propozycja) => propozycja.rodzaj === 'REVIEW' && propozycja.element.typ === 'ANALYSIS_RUN' && propozycja.element.id === przebieg.id))) {
+    for (const przebieg of dane.przebiegiAnaliz.filter((przebieg) => korekta.typCelu === 'DECISION'
+      ? dane.decyzje.find((decyzja) => decyzja.id === korekta.celId)!.powiazaneElementy.some((element) => element.typ === 'ANALYSIS_RUN' && element.id === przebieg.id)
+      : dane.wpisy.some((wpis) => wpis.id === przebieg.sourceId && wpis.projektId === korekta.projektId)).filter((przebieg) =>
+      !analiza.propozycje.some((propozycja) => propozycja.rodzaj === 'REVIEW' && propozycja.element.typ === 'ANALYSIS_RUN' && propozycja.element.id === przebieg.id))) {
       analiza.propozycje.push({ id: `${analiza.id}:run:${przebieg.id}`, rodzaj: 'REVIEW', stan: 'PENDING',
         tytul: 'Sprawdź powiązany przebieg analizy', uzasadnienie: 'Wspólny projekt z korektą.',
         element: { typ: 'ANALYSIS_RUN', id: przebieg.id, tytul: 'Przebieg analizy' } });
@@ -117,7 +129,9 @@ export function wykonajKorekte(obecne: DaneKopii, operacja: OperacjaKorekty, kon
   if (operacja.rodzaj === 'odwroc') {
     const zastosowana = dane.zestawyZmian.find((zestaw) => zestaw.correctionId === korekta.id);
     if (!zastosowana?.operations.some((zmiana) => zmiana.rodzaj === 'KOREKTA') || !korekta.pole) throw new Error('Ta korekta nie ma odwracalnej zmiany pola.');
-    const zdarzenie = dane.zdarzeniaDomenowe.find((zdarzenie) => zdarzenie.payload.changeSetId === zastosowana.id && zdarzenie.eventType === 'CORRECTION_VALUE_CHANGED');
+    const zdarzenie = dane.zdarzeniaDomenowe.find((zdarzenie) => zdarzenie.payload?.changeSetId === zastosowana.id && zdarzenie.eventType === 'CORRECTION_VALUE_CHANGED');
+    if (!zdarzenie) throw new Error('Brak poprawnej historii zmiany wartości. Nie można odwrócić korekty.');
+    sprawdzHistorieZmianyWartosci(dane, zdarzenie, korekta, zastosowana);
     const celId = korekta.typCelu === 'DECISION' ? (zdarzenie?.payload.after as { id: string }).id : korekta.celId;
     utworz({ ...korekta, id: operacja.noweId, celId, nowaWartosc: korekta.poprzedniaWartosc,
       opis: `Odwrócenie korekty: ${korekta.opis}`, odwracaKorekteId: korekta.id });
@@ -151,9 +165,11 @@ export function wykonajKorekte(obecne: DaneKopii, operacja: OperacjaKorekty, kon
   const zestaw: ZestawZmianKorekty = { id: `zestaw-${korekta.id}`, schemaVersion: 1, proposalId: propozycja.id,
     reviewId: propozycja.id, reviewRevision: propozycja.reviewRevision, correctionId: korekta.id, operations: structuredClone(zmiany),
     expectedRevisions: propozycja.expectedRevisions, idempotencyKey: operacja.idempotencyKey, appliedAt: kontekst.czas };
-  function zdarzenie(zmiana: OperacjaZmianyKorekty, typ: string, przed: unknown, po: unknown) {
+  const dotknieteProjekty = new Set(projektyKorekty(korekta));
+  function zdarzenie(zmiana: OperacjaZmianyKorekty, typ: string, przed: unknown, po: unknown, projektIds = projektyKorekty(korekta!)) {
+    projektIds.forEach((id) => dotknieteProjekty.add(id));
     dane.zdarzeniaDomenowe.push({ id: `${kontekst.idZdarzenia}:domena:${zmiana.id}`, eventType: typ, eventVersion: 1,
-      aggregateType: 'CORRECTION', aggregateId: korekta!.id, projectIds: [korekta!.projektId], occurredAt: kontekst.czas,
+      aggregateType: 'CORRECTION', aggregateId: korekta!.id, projectIds: [...new Set(projektIds)], occurredAt: kontekst.czas,
       actor: kontekst.zrodlo, source: kontekst.zrodlo,
       payload: { correctionId: korekta!.id, changeSetId: zestaw.id, operationId: zmiana.id,
         before: JSON.parse(JSON.stringify(przed)), after: JSON.parse(JSON.stringify(po)) } });
@@ -170,7 +186,7 @@ export function wykonajKorekte(obecne: DaneKopii, operacja: OperacjaKorekty, kon
             nazwaZrodla: korekta.utworzyl, odniesienieZrodla: `Korekta ${korekta.id}` } }, { ...kontekst, idZdarzenia: `${kontekst.idZdarzenia}:decyzja` });
         for (const nowa of wynik.decyzje) dane.decyzje = [...dane.decyzje.filter((obecna) => obecna.id !== nowa.id), nowa];
         const nowa = wynik.decyzje.find((decyzja) => decyzja.id === `decyzja-${korekta.id}`)!;
-        zdarzenie(zmiana, 'CORRECTION_VALUE_CHANGED', przed, nowa);
+        zdarzenie(zmiana, 'CORRECTION_VALUE_CHANGED', przed, nowa, [...decyzja.projektIds, ...nowa.projektIds]);
       } else if (korekta.pole) {
         if (korekta.pole === 'priorytet' && !['LOW', 'MEDIUM', 'HIGH'].includes(tresc)) throw new Error('Wybierz poprawny priorytet.');
         const po = { ...przed, [korekta.pole]: tresc, zaktualizowano: kontekst.czas, ...('wersja' in przed ? { wersja: przed.wersja + 1 } : {}) };
@@ -191,13 +207,14 @@ export function wykonajKorekte(obecne: DaneKopii, operacja: OperacjaKorekty, kon
       for (const nowa of wynik.decyzje) dane.decyzje = [...dane.decyzje.filter((obecna) => obecna.id !== nowa.id), nowa];
       for (const nowy of wynik.projekty) dane.projekty = dane.projekty.map((projekt) => projekt.id === nowy.id ? nowy : projekt);
       for (const nowa of wynik.analizy) dane.analizyWplywu = dane.analizyWplywu.map((analiza) => analiza.id === nowa.id ? nowa : analiza);
-      if (zmiana.status !== 'REJECTED') zdarzenie(zmiana, 'CORRECTION_IMPACT_APPLIED', przed, wynik);
+      if (zmiana.status !== 'REJECTED') zdarzenie(zmiana, 'CORRECTION_IMPACT_APPLIED', przed, wynik,
+        [...projektyKorekty(korekta), ...wynik.decyzje.flatMap((decyzja) => decyzja.projektIds), ...wynik.projekty.map((projekt) => projekt.id)]);
     }
   }
   if (zmiany.length) dane.zestawyZmian.push(zestaw);
-  if (zmiany.length) dane.projekty = dane.projekty.map((projekt) => projekt.id === korekta.projektId
+  if (zmiany.length) dane.projekty = dane.projekty.map((projekt) => dotknieteProjekty.has(projekt.id)
     ? { ...projekt, ostatniaAktywnosc: kontekst.czas > projekt.ostatniaAktywnosc ? kontekst.czas : projekt.ostatniaAktywnosc } : projekt);
   dane.korekty = dane.korekty.map((obecna) => obecna.id === korekta.id ? { ...korekta, status: zmiany.length ? 'APPLIED' : 'REJECTED' } : obecna);
-  aktywnosc(korekta, 'CORRECTION_APPLIED', zmiany.length ? 'Zastosowano zatwierdzony zestaw zmian' : 'Odrzucono propozycje korekty');
+  aktywnosc(korekta, 'CORRECTION_APPLIED', zmiany.length ? 'Zastosowano zatwierdzony zestaw zmian' : 'Odrzucono propozycje korekty', [...dotknieteProjekty]);
   return dane;
 }

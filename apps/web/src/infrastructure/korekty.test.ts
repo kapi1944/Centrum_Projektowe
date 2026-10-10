@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { utworzRepozytoriumIndexedDb } from './repozytoriumIndexedDb';
 import { utworzProjekt, utworzWpis } from '../domain/operacje';
 import { pusteDaneKopii, sprawdzKopie, type KopiaZapasowaV1, type KopiaZapasowaV2 } from '../domain/kopieZapasowe';
-import { typyKorekt, type DaneKorekty } from '../domain/korekty';
+import { typyKorekt, wykonajKorekte, type DaneKorekty } from '../domain/korekty';
 import type { RepozytoriumProjektowe } from '../domain/repozytorium';
 import { uruchomAnalizePoKorekcie, uruchomAnalizeWpisu } from '../application/przypadkiUzycia';
 import { RuleBasedAnalysisProvider } from './RuleBasedAnalysisProvider';
@@ -46,7 +46,125 @@ async function zastosuj(repozytorium: RepozytoriumProjektowe, id: string, wersja
   const propozycja = (await repozytorium.pobierzKorekty()).propozycjeZmian.find((propozycja) => propozycja.correctionId === id)!;
   await repozytorium.wykonajOperacjeKorekty({ rodzaj: 'zastosuj', id, wersja: wersja ?? propozycja.reviewRevision, idempotencyKey: `apply:${id}` }, kontekst());
 }
+async function przygotujDecyzje(projektIds = ['p1']) {
+  const przygotowane = await przygotuj();
+  const { repozytorium } = przygotowane;
+  if (projektIds.includes('p2')) await repozytorium.dodajProjekt(utworzProjekt('Drugi projekt', 'p2', czas), kontekst());
+  await repozytorium.wykonajOperacjeUstalen({ rodzaj: 'utworz', id: 'd1', dane: {
+    tytul: 'Wspólna decyzja', opis: 'Użyj A', projektIds, typZrodla: 'USER', nazwaZrodla: 'Użytkownik',
+    odniesienieZrodla: '', wpisZrodlowyId: 'w1', notatki: '', powiazaneElementy: [],
+  } }, kontekst());
+  await repozytorium.wykonajOperacjeUstalen({ rodzaj: 'status', id: 'd1', wersja: 1, status: 'ACCEPTED' }, kontekst());
+  const id = await utworz(repozytorium, korekta({ typCelu: 'DECISION', celId: 'd1', nowaWartosc: 'Użyj B' }));
+  await reviewuj(repozytorium, id);
+  return { ...przygotowane, id };
+}
 afterEach(() => vi.restoreAllMocks());
+
+describe('Integralność historii korekt i audyt wieloprojektowy', () => {
+  it.each([
+    ['null', null], ['pusty obiekt', {}], ['nieistniejący następca', { id: 'brak' }],
+  ])('odrzuca nieprawidłowe PO (%s) przed zapisem i pozostawia bazę bez zmian', async (_etykieta, po) => {
+    const { repozytorium, id } = await przygotujDecyzje(); await zastosuj(repozytorium, id);
+    const kopia = await repozytorium.eksportujKopie(); const uszkodzona = structuredClone(kopia);
+    uszkodzona.data.zdarzeniaDomenowe[0].payload.after = po;
+    const zapis = vi.spyOn(IDBObjectStore.prototype, 'clear');
+    const dodanie = vi.spyOn(IDBObjectStore.prototype, 'add');
+    await expect(repozytorium.importujKopie(uszkodzona, 'zastap', true)).rejects.toThrow(/Zdarzenie .*PO/);
+    expect(zapis).not.toHaveBeenCalled(); expect(dodanie).not.toHaveBeenCalled();
+    expect((await repozytorium.eksportujKopie()).data).toEqual(kopia.data);
+  });
+  it.each(['id', 'opis', 'projektIds', 'wpisZrodlowyId'])('odrzuca poprawny strukturalnie snapshot z niespójnym polem %s', async (pole) => {
+    const { repozytorium, id } = await przygotujDecyzje(); await zastosuj(repozytorium, id);
+    const kopia = await repozytorium.eksportujKopie(); const przed = structuredClone(kopia.data);
+    const po = kopia.data.zdarzeniaDomenowe[0].payload.after as Record<string, unknown>;
+    po[pole] = pole === 'projektIds' ? ['p1', 'brak'] : 'brak';
+    await expect(repozytorium.importujKopie(kopia, 'zastap', true)).rejects.toThrow('niepoprawna historia');
+    expect((await repozytorium.eksportujKopie()).data).toEqual(przed);
+  });
+  it('odrzuca podmienione PRZED i nie maskuje go treścią bieżącej decyzji', async () => {
+    const { repozytorium, id } = await przygotujDecyzje(); await zastosuj(repozytorium, id);
+    const kopia = await repozytorium.eksportujKopie();
+    (kopia.data.zdarzeniaDomenowe[0].payload.before as Record<string, unknown>).opis = 'Podmieniona historia';
+    expect(() => sprawdzKopie(kopia)).toThrow('PRZED nie odpowiada');
+  });
+  it.each([['p1'], ['p1', 'p2', 'p2']])('odrzuca niepełny lub powtórzony zakres zdarzenia: %j', async (...projektIds) => {
+    const { repozytorium, id } = await przygotujDecyzje(['p1', 'p2']); await zastosuj(repozytorium, id);
+    const kopia = await repozytorium.eksportujKopie();
+    const uszkodzona = structuredClone(kopia);
+    uszkodzona.data.zdarzeniaDomenowe[0] = { ...uszkodzona.data.zdarzeniaDomenowe[0], projectIds: projektIds };
+    await expect(repozytorium.importujKopie(uszkodzona, 'zastap', true)).rejects.toThrow();
+    expect((await repozytorium.eksportujKopie()).data).toEqual(kopia.data);
+  });
+  it.each(['null', 'brak zdarzenia'])('odwracanie uszkodzonej historii (%s) zgłasza kontrolowany błąd', async (wariant) => {
+    const { repozytorium, id } = await przygotujDecyzje(); await zastosuj(repozytorium, id);
+    const dane = (await repozytorium.eksportujKopie()).data;
+    if (wariant === 'null') dane.zdarzeniaDomenowe[0].payload.after = null;
+    else dane.zdarzeniaDomenowe = [];
+    const przed = structuredClone(dane);
+    expect(() => wykonajKorekte(dane, { rodzaj: 'odwroc', id, noweId: 'odwrocenie' }, kontekst())).toThrow(/histori/i);
+    expect(dane).toEqual(przed);
+  });
+  it.each([['p1'], ['p1', 'p2']])('poprawny backup v3 decyzji projektów %j pozwala odtworzyć i odwrócić korektę', async (...projektIds) => {
+    const { repozytorium, id } = await przygotujDecyzje(projektIds); await zastosuj(repozytorium, id);
+    const kopia = await repozytorium.eksportujKopie();
+    const { repozytorium: odtworzone } = await przygotuj(JSON.parse(JSON.stringify(kopia)));
+    await odtworzone.wykonajOperacjeKorekty({ rodzaj: 'odwroc', id, noweId: 'odwrocenie' }, kontekst());
+    await reviewuj(odtworzone, 'odwrocenie'); await zastosuj(odtworzone, 'odwrocenie');
+    const decyzje = await odtworzone.pobierzDecyzje();
+    expect(decyzje.filter((decyzja) => decyzja.status === 'ACCEPTED')).toEqual([
+      expect.objectContaining({ id: 'decyzja-odwrocenie', opis: 'Użyj A', projektIds }),
+    ]);
+    expect(decyzje.find((decyzja) => decyzja.id === 'd1')?.opis).toBe('Użyj A');
+    sprawdzKopie(await odtworzone.eksportujKopie());
+  });
+  it('wspólna decyzja ma pełny wpływ i audyt obu projektów bez duplikowania decyzji i niepowiązanej pracy', async () => {
+    const { repozytorium, id } = await przygotujDecyzje(['p1', 'p2']);
+    const analiza = (await repozytorium.pobierzAnalizyWplywu()).find((analiza) => analiza.zrodlo.id === id)!;
+    expect(analiza.projektIds).toEqual(['p1', 'p2']);
+    expect(analiza.propozycje.filter((propozycja) => propozycja.rodzaj === 'RESUME').map((propozycja) => propozycja.projektId)).toEqual(['p1', 'p2']);
+    expect(analiza.propozycje.some((propozycja) => propozycja.rodzaj === 'REVIEW' && propozycja.element.id === 'r1')).toBe(false);
+    const czasZmiany = '2026-10-10T12:00:00Z';
+    const propozycja = (await repozytorium.pobierzKorekty()).propozycjeZmian.find((propozycja) => propozycja.correctionId === id)!;
+    await repozytorium.wykonajOperacjeKorekty({ rodzaj: 'zastosuj', id, wersja: propozycja.reviewRevision,
+      idempotencyKey: `apply:${id}` }, { ...kontekst(), czas: czasZmiany });
+    const dane = (await repozytorium.eksportujKopie()).data;
+    expect(dane.decyzje).toHaveLength(2);
+    expect(dane.decyzje.filter((decyzja) => decyzja.status === 'ACCEPTED')).toEqual([
+      expect.objectContaining({ opis: 'Użyj B', projektIds: ['p1', 'p2'] }),
+    ]);
+    expect(dane.zdarzeniaDomenowe).toHaveLength(1);
+    expect(dane.zdarzeniaDomenowe[0].projectIds).toEqual(['p1', 'p2']);
+    const historia = dane.zdarzenia.filter((zdarzenie) => zdarzenie.typZdarzenia === 'CORRECTION_APPLIED');
+    expect(historia.map((zdarzenie) => zdarzenie.projektId).sort()).toEqual(['p1', 'p2']);
+    expect(new Set(historia.map((zdarzenie) => zdarzenie.metadane?.operacjaZrodlowaId)).size).toBe(1);
+    expect(historia.every((zdarzenie) => zdarzenie.encjaId === id)).toBe(true);
+    expect(dane.projekty.every((projekt) => projekt.ostatniaAktywnosc === czasZmiany)).toBe(true);
+    sprawdzKopie(await repozytorium.eksportujKopie());
+  });
+  it('jawne powiązanie pracy drugiego projektu jest kandydatem wpływu', async () => {
+    const { repozytorium } = await przygotujDecyzje(['p1', 'p2']);
+    const kopia = await repozytorium.eksportujKopie();
+    kopia.data.elementyPracy.push({ ...kopia.data.elementyPracy[0], id: 'r2', projektId: 'p2', decyzjaIds: ['d1'] });
+    await repozytorium.importujKopie(kopia, 'zastap', true);
+    const id = await utworz(repozytorium, korekta({ typCelu: 'DECISION', celId: 'd1', nowaWartosc: 'Użyj C' }));
+    const analiza = (await repozytorium.pobierzAnalizyWplywu()).find((analiza) => analiza.zrodlo.id === id)!;
+    expect(analiza.propozycje.filter((propozycja) => propozycja.rodzaj === 'REVIEW').map((propozycja) => propozycja.element.id)).toEqual(['r2']);
+  });
+  it('błąd zapisu historii drugiego projektu wycofuje decyzję, ChangeSet i całą historię', async () => {
+    const { repozytorium, id } = await przygotujDecyzje(['p1', 'p2']);
+    const przed = (await repozytorium.eksportujKopie()).data;
+    const dodaj = IDBObjectStore.prototype.add;
+    vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(function (this: IDBObjectStore, rekord, klucz) {
+      if (this.name === 'zdarzenia' && rekord.typZdarzenia === 'CORRECTION_APPLIED' && rekord.projektId === 'p2') dodaj.call(this, rekord, klucz);
+      return dodaj.call(this, rekord, klucz);
+    });
+    await expect(zastosuj(repozytorium, id)).rejects.toThrow('Nie udało');
+    expect((await repozytorium.eksportujKopie()).data).toEqual(przed);
+    vi.restoreAllMocks(); await zastosuj(repozytorium, id);
+    expect((await repozytorium.pobierzKorekty()).zestawyZmian).toHaveLength(1);
+  });
+});
 
 describe('Korekty, review i atomowy zestaw zmian', () => {
   it.each(Object.keys(typyKorekt) as DaneKorekty['typ'][])('zapisuje i stosuje %s po review, zachowuje PRZED i źródło', async (typ) => {
