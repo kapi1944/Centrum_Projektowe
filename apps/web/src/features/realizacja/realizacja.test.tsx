@@ -44,7 +44,7 @@ describe('Realizacja projektu w interfejsie', () => {
     await uzytkownik.click(within(decyzja).getByRole('link', { name: 'Sprawdzić odczyt' }));
     await uzytkownik.click(await screen.findByRole('button', { name: 'Ukończ element pracy' }));
     await screen.findByText('Eksperyment · Zakończone');
-    expect(screen.getByText('Ręczny krok')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Gdzie skończyłem?' })).getByText('Ręczny krok')).toBeInTheDocument();
     widok.unmount();
     render(<MemoryRouter initialEntries={['/projekty/p1']}><Aplikacja repozytorium={utworzRepozytoriumIndexedDb(nazwaBazy)} /></MemoryRouter>);
     expect(await screen.findByText('Eksperyment · Zakończone')).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe('Realizacja projektu w interfejsie', () => {
     await uzytkownik.click(within(blokada).getByRole('button', { name: 'Rozwiąż blokadę' }));
     await within(blokada).findByText('Rozwiązana · Waga: Wysoka');
     expect(within(punkt).getByText('Brak aktywnych blokad.')).toBeInTheDocument();
-    expect(screen.getByText('Ręczny krok')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Gdzie skończyłem?' })).getByText('Ręczny krok')).toBeInTheDocument();
   });
 
   it('jawnie konwertuje dawną zastosowaną analizę, dopiero po potwierdzeniu, z odnośnikiem do źródła', async () => {

@@ -2,6 +2,7 @@ import { pusteKorekty, type OperacjaKorekty } from '../../domain/korekty';
 import type { DaneKopii } from '../../domain/kopieZapasowe';
 import { pustaRealizacja, type OperacjaRealizacji } from '../../domain/realizacja';
 import { useEffect, useState } from 'react';
+import { utworzProjektorStanu } from '../../domain/stanProjektu';
 import type { DaneProjektu, KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci, ZmianaProjektu } from '../../domain/modele';
 import type { AkcjaWpisu } from '../../domain/modele';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen } from '../../domain/ustalenia';
@@ -16,6 +17,7 @@ import { RuleBasedAnalysisProvider } from '../../infrastructure/RuleBasedAnalysi
 const domyslnyDostawcaAnalizy: AnalysisProvider = new RuleBasedAnalysisProvider();
 
 export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dostawcaAnalizy = domyslnyDostawcaAnalizy) {
+  const [projektor] = useState(utworzProjektorStanu);
   const [projekty, ustawProjekty] = useState<Projekt[]>([]);
   const [wpisy, ustawWpisy] = useState<Wpis[]>([]);
   const [zdarzenia, ustawZdarzenia] = useState<ZdarzenieAktywnosci[]>([]);
@@ -152,5 +154,6 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
     finally { ustawOdswiezenie((poprzednie) => poprzednie + 1); }
   }
   const daneKorekt: DaneKopii = { ...realizacja, ...korekty, projekty, wpisy, zdarzenia, decyzje, analizyWplywu: analizy, analizyWpisow, przebiegiAnaliz };
-  return { daneKorekt, wykonajKorekte, analizujKorekte, odswiez: () => ustawOdswiezenie((poprzednie) => poprzednie + 1), projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, przebiegiAnaliz, preferujAnalize, realizacja, wykonajRealizacje, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
+  const obrazyProjektow = projektor(daneKorekt);
+  return { obrazyProjektow, daneKorekt, wykonajKorekte, analizujKorekte, odswiez: () => ustawOdswiezenie((poprzednie) => poprzednie + 1), projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, przebiegiAnaliz, preferujAnalize, realizacja, wykonajRealizacje, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
 }

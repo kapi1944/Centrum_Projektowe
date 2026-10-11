@@ -7,8 +7,11 @@ import { etykietyZrodel, statusyProjektu, type Projekt as ModelProjektu, type Zd
 import { FormularzProjektu } from '../features/projekty/FormularzProjektu';
 import { FormularzPunktuPowrotu } from '../features/projekty/FormularzPunktuPowrotu';
 import { formatujDate } from '../shared/formatujDate';
+import type { ObrazProjektu } from '../domain/stanProjektu';
+import { StanTeraz } from './WymagaUwagi';
 
-export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje, wykonajRealizacje }: {
+export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje, wykonajRealizacje, obrazyProjektow }: {
+  obrazyProjektow: ObrazProjektu[];
   realizacja: StanRealizacji; decyzje: Decyzja[]; wykonajRealizacje: (operacja: OperacjaRealizacji) => Promise<void>;
   projekty: ModelProjektu[];
   zdarzenia: ZdarzenieAktywnosci[];
@@ -33,6 +36,7 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje
 
   const historia = zdarzenia.filter((zdarzenie) => zdarzenie.projektId === projekt.id || zdarzenie.projektIds?.includes(projekt.id))
     .sort((lewe, prawe) => prawe.utworzono.localeCompare(lewe.utworzono)).slice(0, 20);
+  const obraz = obrazyProjektow.find((obraz) => obraz.migawka.projektId === projekt.id);
 
   return <>
     <Link to="/projekty">Wszystkie projekty</Link>
@@ -44,6 +48,7 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje
     <p className="surowy-wpis">{projekt.opis || 'Brak opisu.'}</p>
     <p>Ostatnia aktywność: {formatujDate(projekt.ostatniaAktywnosc)}</p>
     <small>Utworzono: {formatujDate(projekt.utworzono)} · Zaktualizowano: {formatujDate(projekt.zaktualizowano)}</small>
+    {obraz && <StanTeraz migawka={obraz.migawka} uwaga={obraz.uwaga} />}
     <section className="punkt-powrotu" aria-labelledby="pamiec-projektu">
       <h2 id="pamiec-projektu">Gdzie skończyłem?</h2>
       <h3>Ostatnio robiłem</h3><p className="surowy-wpis">{projekt.ostatnioPracowanoNad || 'Nie uzupełniono.'}</p>
