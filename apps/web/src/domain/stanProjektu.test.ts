@@ -28,6 +28,48 @@ function zmienCel(dane: DaneKopii, przyjmij: boolean, typ: DaneKorekty['typ'] = 
 }
 
 describe('Deterministyczny aktualny stan projektu', () => {
+  it('aktualizuje ograniczenie i uwagę obu projektów wspólnej decyzji, zachowując punkt powrotu oraz źródło korekty', () => {
+    let dane = przygotuj();
+    dane.projekty[0].podsumowanieAktualnegoStanu = 'Ręczne podsumowanie';
+    dane.projekty[0].nastepnyKrok = 'Ręczny krok';
+    dane.decyzje = wykonajOperacjeUstalen({ ...dane, analizy: [] }, { rodzaj: 'utworz', id: 'd1', dane: {
+      tytul: 'Wspólne ograniczenie', opis: 'A', projektIds: ['p1', 'p2'], typZrodla: 'USER', nazwaZrodla: 'Użytkownik',
+      odniesienieZrodla: '', wpisZrodlowyId: null, notatki: '', powiazaneElementy: [],
+    } }, kontekst).decyzje;
+    const projektor = utworzProjektorStanu();
+    expect(projektor(dane).every((obraz) => obraz.uwaga.some((element) => element.typ === 'DECISION_REQUIRED'))).toBe(true);
+    dane.decyzje = wykonajOperacjeUstalen({ ...dane, analizy: [] }, { rodzaj: 'status', id: 'd1', wersja: 1, status: 'ACCEPTED' }, kontekst).decyzje;
+    expect(projektor(dane).every((obraz) => !obraz.uwaga.some((element) => element.typ === 'DECISION_REQUIRED'))).toBe(true);
+    dane = wykonajKorekte(dane, { rodzaj: 'utworz', dane: { id: 'k1', projektId: 'p1', celId: 'd1', typCelu: 'DECISION',
+      pole: 'opis', typ: 'TECHNICAL_CONSTRAINT', opis: 'Wspólne wymaganie', nowaWartosc: 'B' } }, kontekst);
+    const przed = projektor(dane);
+    expect(przed.every((obraz) => obraz.uwaga.some((element) => element.typ === 'REVIEW_REQUIRED'
+      && element.odnosnikiZrodel[0].adres === '/projekty/p1/korekty'))).toBe(true);
+    let wersja = 1;
+    for (const operacja of dane.propozycjeZmian[0].operations) dane = wykonajKorekte(dane, {
+      rodzaj: 'review', id: 'k1', wersja: wersja++, operacjaId: operacja.id,
+      status: operacja.rodzaj === 'KOREKTA' ? 'ACCEPTED' : 'REJECTED',
+    }, { ...kontekst, idZdarzenia: `review-${wersja}` });
+    dane = wykonajKorekte(dane, { rodzaj: 'zastosuj', id: 'k1', wersja, idempotencyKey: 'wspolne' },
+      { ...kontekst, czas: pozniej, idZdarzenia: 'wspolne' });
+    const po = projektor(dane);
+    for (const obraz of po) {
+      expect(obraz.migawka.aktywneOgraniczenia).toEqual([{ id: 'k1', tytul: 'B', adres: '/projekty/p1/korekty' }]);
+      expect(obraz.migawka.ostatnieZmiany[0].adres).toBe('/projekty/p1/korekty');
+      expect(obraz.uwaga.some((element) => element.typ === 'REVIEW_REQUIRED')).toBe(false);
+    }
+    expect(po[0].migawka.podsumowanie).toBe('Ręczne podsumowanie');
+    expect(po[0].migawka.sugerowaneDzialania[0].tytul).toBe('Ręczny krok');
+    expect(dane.projekty[0]).toMatchObject({ podsumowanieAktualnegoStanu: 'Ręczne podsumowanie', nastepnyKrok: 'Ręczny krok' });
+    const ponowione = wykonajKorekte(dane, { rodzaj: 'zastosuj', id: 'k1', wersja, idempotencyKey: 'wspolne' }, kontekst);
+    expect(projektor(ponowione)).toEqual(po);
+    const odwrocone = structuredClone(dane);
+    Object.values(odwrocone).forEach((rekordy) => rekordy.reverse());
+    expect(utworzProjektorStanu()(odwrocone)).toEqual(po);
+    expect(wyliczStanProjektu(odwrocone, dane.projekty[1])).toEqual(po[1]);
+    expect(new Set(po.flatMap((obraz) => obraz.uwaga.map((element) => element.id))).size).toBe(po.flatMap((obraz) => obraz.uwaga).length);
+    expect(po.flatMap((obraz) => obraz.uwaga).some((element) => ['FAILED_INTEGRATION', 'STALE_DOCUMENT', 'CONFLICT'].includes(element.typ))).toBe(false);
+  });
   it('zaakceptowana korekta celu aktualizuje migawkę po DomainEvents, odrzucona zachowuje ją w całości', () => {
     const dane = przygotuj(); const przed = obraz(dane).migawka;
     const przyjeta = obraz(zmienCel(dane, true)).migawka;

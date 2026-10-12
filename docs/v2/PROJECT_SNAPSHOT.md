@@ -4,6 +4,10 @@
 
 Po zakończeniu istniejącej transakcji ChangeSet rejestr odczytuje zatwierdzone dane i DomainEvents. Lokalny projektor aktualizuje obraz zmienionych projektów. Klucz cache uwzględnia jawny zakres projektów decyzji i zdarzeń domenowych. Niezmienione projekty zachowują ten sam obiekt. Niepowodzenie zapisu nie publikuje nowego stanu. Import lub ponowne otwarcie odtwarza projekcję ze źródeł; format kopii i wersja IndexedDB pozostają bez zmian.
 
+Projektor nie ma osobnego trwałego kursora z ADR 0003: za każdym razem wylicza wynik z kanonicznego stanu, a cache służy tylko unikaniu powtórnego obliczenia. Nie stosuje skutków zdarzeń przyrostowo, więc ponowny odczyt tego samego eventId nie powiela skutków ani uwagi. Unikalność zdarzeń i idempotencję ChangeSet zapewnia istniejąca transakcja. Po błędzie projekcji ponowny odczyt odtwarza całość bez zgubienia zdarzeń; zatwierdzona domena pozostaje zapisana. Są to równoważne gwarancje odtwarzania dla tej projekcji, bez kursora przetwarzania przyrostowego Impact Engine.
+
+Korekta wspólnej decyzji jest widoczna we wszystkich projektach z jej jawnego zakresu. Ograniczenia, uwaga i ostatnie zmiany prowadzą do projektu, w którym zapisano źródłową korektę. Widok uwagi udostępnia filtry projektu, typu i wagi; filtrowanie nie zapisuje zmian domeny.
+
 Rewizja jest deterministycznym, pełnym kluczem treści projekcji; nie jest licznikiem operacji. Czas wygenerowania oznacza najnowszy czas danych domenowych uwzględnionych w stanie, nie zegar odczytu. Odrzucona korekta nie zmienia migawki; jej rozstrzygnięcie może usunąć uwagę o oczekującej weryfikacji. Kolejność źródłowych tablic nie wpływa na wynik.
 
 Cel pochodzi z aktualnego opisu projektu. Podsumowanie jest dosłownym zapisem punktu powrotu użytkownika. Nie interpretujemy automatycznie tekstu ani podsumowań dostawcy analizy. Ograniczenia pochodzą z zastosowanych korekt typu zmiana ograniczenia / ograniczenie techniczne, których wartość nadal odpowiada bieżącemu celowi korekty. Decyzje proponowane, zastąpione i odrzucone nie obowiązują. Praca zakończona lub porzucona, pytania rozstrzygnięte i nieaktywne blokery nie trafiają do aktualnego stanu.

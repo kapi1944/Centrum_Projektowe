@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { typyUwagi, wagiUwagi, type ElementUwagi, type MigawkaProjektu } from '../domain/stanProjektu';
 import type { Projekt } from '../domain/modele';
 import { formatujDate } from '../shared/formatujDate';
@@ -14,11 +15,27 @@ export function ListaUwagi({ elementy }: { elementy: ElementUwagi[] }) {
 }
 
 export function WymagaUwagi({ projekty, elementy }: { projekty: Projekt[]; elementy: ElementUwagi[] }) {
+  const [projektId, ustawProjekt] = useState('');
+  const [typ, ustawTyp] = useState('');
+  const [waga, ustawWage] = useState('');
+  const widoczne = elementy.filter((element) => (!projektId || element.projektId === projektId)
+    && (!typ || element.typ === typ) && (!waga || element.waga === waga));
   return <><h1>Wymaga uwagi</h1><p>Sprawy wynikające z aktualnych danych projektu. Rozstrzygaj je w miejscu źródłowym.</p>
-    {elementy.length === 0 && <p>Brak spraw wymagających uwagi.</p>}
-    {projekty.filter((projekt) => elementy.some((element) => element.projektId === projekt.id)).map((projekt) => <section key={projekt.id}>
+    <div className="formularz-realizacji">
+      <label htmlFor="uwaga-projekt">Projekt</label><select id="uwaga-projekt" value={projektId} onChange={(zdarzenie) => ustawProjekt(zdarzenie.target.value)}>
+        <option value="">Wszystkie projekty</option>{projekty.map((projekt) => <option key={projekt.id} value={projekt.id}>{projekt.nazwa}</option>)}
+      </select>
+      <label htmlFor="uwaga-typ">Typ uwagi</label><select id="uwaga-typ" value={typ} onChange={(zdarzenie) => ustawTyp(zdarzenie.target.value)}>
+        <option value="">Wszystkie typy</option>{Object.entries(typyUwagi).map(([id, tytul]) => <option key={id} value={id}>{tytul}</option>)}
+      </select>
+      <label htmlFor="uwaga-waga">Waga</label><select id="uwaga-waga" value={waga} onChange={(zdarzenie) => ustawWage(zdarzenie.target.value)}>
+        <option value="">Wszystkie wagi</option>{Object.entries(wagiUwagi).map(([id, tytul]) => <option key={id} value={id}>{tytul}</option>)}
+      </select>
+    </div>
+    {widoczne.length === 0 && <p>{elementy.length ? 'Brak spraw dla wybranych filtrów.' : 'Brak spraw wymagających uwagi.'}</p>}
+    {projekty.filter((projekt) => widoczne.some((element) => element.projektId === projekt.id)).map((projekt) => <section key={projekt.id}>
       <h2><Link to={`/projekty/${projekt.id}`}>{projekt.nazwa}</Link></h2>
-      <ListaUwagi elementy={elementy.filter((element) => element.projektId === projekt.id)} />
+      <ListaUwagi elementy={widoczne.filter((element) => element.projektId === projekt.id)} />
     </section>)}
   </>;
 }
@@ -26,7 +43,7 @@ export function WymagaUwagi({ projekty, elementy }: { projekty: Projekt[]; eleme
 export function StanTeraz({ migawka, uwaga }: { migawka: MigawkaProjektu; uwaga: ElementUwagi[] }) {
   const grupy = [
     { tytul: 'Aktualne cele', tresci: migawka.aktualneCele },
-    { tytul: 'Aktywne ograniczenia', tresci: migawka.aktywneOgraniczenia.map((element) => element.tytul) },
+    { tytul: 'Aktywne ograniczenia', tresci: migawka.aktywneOgraniczenia.map((element) => element.tytul), odnosniki: migawka.aktywneOgraniczenia },
     { tytul: 'Obowiązujące decyzje', tresci: migawka.aktywneDecyzje.map((element) => `${element.tytul}: ${element.opis}`) },
     { tytul: 'Otwarte pytania', tresci: migawka.otwartePytania.map((element) => element.pytanie) },
     { tytul: 'Blokery', tresci: migawka.blokery.map((element) => element.tytul) },
@@ -41,7 +58,8 @@ export function StanTeraz({ migawka, uwaga }: { migawka: MigawkaProjektu; uwaga:
     <h3>Ostatnio zaakceptowane zmiany</h3>
     {migawka.ostatnieZmiany.length ? <ul>{migawka.ostatnieZmiany.map((zmiana) => <li key={zmiana.id}><Link to={zmiana.adres}>{zmiana.tytul}</Link></li>)}</ul> : <p>Brak zastosowanych zestawów zmian.</p>}
     {grupy.map((grupa) => <div key={grupa.tytul}><h3>{grupa.tytul}</h3>{grupa.tresci.length
-      ? <ul>{grupa.tresci.map((tresc, numer) => <li className="surowy-wpis" key={numer}>{tresc}</li>)}</ul> : <p>Brak.</p>}</div>)}
+      ? <ul>{grupa.tresci.map((tresc, numer) => <li className="surowy-wpis" key={numer}>{grupa.odnosniki?.[numer]
+        ? <Link to={grupa.odnosniki[numer].adres}>{tresc}</Link> : tresc}</li>)}</ul> : <p>Brak.</p>}</div>)}
     <h3>Wymaga uwagi</h3><ListaUwagi elementy={uwaga} />
   </section>;
 }

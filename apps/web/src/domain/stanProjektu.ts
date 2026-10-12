@@ -32,13 +32,16 @@ function uporzadkuj<T extends { id: string }>(rekordy: T[]): T[] {
 export function wyliczStanProjektu(dane: DaneKopii, projekt: Projekt): ObrazProjektu {
   const adresProjektu = `/projekty/${projekt.id}`;
   const odnosnik = (id: string, tytul: string, adres = adresProjektu): OdnosnikStanu => ({ id, tytul, adres });
+  const korektyProjektu = dane.korekty.filter((rekord) => rekord.projektId === projekt.id
+    || dane.zdarzeniaDomenowe.some((zdarzenie) => zdarzenie.payload.correctionId === rekord.id && zdarzenie.projectIds.includes(projekt.id))
+    || (rekord.typCelu === 'DECISION' && dane.decyzje.some((decyzja) => decyzja.id === rekord.celId && decyzja.projektIds.includes(projekt.id))));
   const decyzje = uporzadkuj(dane.decyzje.filter((rekord) => rekord.projektIds.includes(projekt.id)));
   const praca = uporzadkuj(dane.elementyPracy.filter((rekord) => rekord.projektId === projekt.id && !['DONE', 'ABANDONED'].includes(rekord.status)));
   const pytania = uporzadkuj(dane.pytania.filter((rekord) => rekord.projektId === projekt.id && rekord.status === 'OPEN'));
   const blokery = uporzadkuj(dane.blokady.filter((rekord) => rekord.projektId === projekt.id && rekord.status === 'ACTIVE'));
   const aktywneDecyzje = decyzje.filter((rekord) => !['PROPOSED', 'SUPERSEDED', 'REJECTED'].includes(rekord.status));
   // Ograniczenia pochodzą wyłącznie z zastosowanych korekt, nadal odpowiadających bieżącej wartości celu.
-  const ograniczenia = uporzadkuj(dane.korekty.filter((rekord) => rekord.projektId === projekt.id && rekord.status === 'APPLIED'
+  const ograniczenia = uporzadkuj(korektyProjektu.filter((rekord) => rekord.status === 'APPLIED'
     && ['CONSTRAINT_CHANGE', 'TECHNICAL_CONSTRAINT'].includes(rekord.typ))).filter((korekta) => {
     const zdarzenie = dane.zdarzeniaDomenowe.find((rekord) => rekord.payload.correctionId === korekta.id
       && rekord.eventType === 'CORRECTION_VALUE_CHANGED');
@@ -48,7 +51,7 @@ export function wyliczStanProjektu(dane: DaneKopii, projekt: Projekt): ObrazProj
       && (!('status' in cel) || !['SUPERSEDED', 'REJECTED', 'RESOLVED', 'DISMISSED', 'DONE', 'ABANDONED'].includes(cel.status));
   }).map((korekta) => {
     const zdarzenie = dane.zdarzeniaDomenowe.find((rekord) => rekord.payload.correctionId === korekta.id && rekord.eventType === 'CORRECTION_VALUE_CHANGED')!;
-    return odnosnik(korekta.id, String((zdarzenie.payload.after as Record<string, unknown>)[korekta.pole!]), `${adresProjektu}/korekty`);
+    return odnosnik(korekta.id, String((zdarzenie.payload.after as Record<string, unknown>)[korekta.pole!]), `/projekty/${korekta.projektId}/korekty`);
   });
   const nieaktualne = praca.flatMap((rekord) => rekord.decyzjaIds.filter((id) => decyzje.some((decyzja) => decyzja.id === id
     && ['SUPERSEDED', 'REJECTED'].includes(decyzja.status))).map((id) => odnosnik(`${rekord.id}:${id}`, `${rekord.tytul} — powiązana decyzja już nie obowiązuje`)));
@@ -62,7 +65,8 @@ export function wyliczStanProjektu(dane: DaneKopii, projekt: Projekt): ObrazProj
   const zdarzenia = dane.zdarzeniaDomenowe.filter((rekord) => rekord.projectIds.includes(projekt.id));
   const ostatniCzas = zdarzenia.map((rekord) => rekord.occurredAt).sort((lewy, prawy) => Date.parse(prawy) - Date.parse(lewy))[0];
   const ostatnieZmiany = uporzadkuj(zdarzenia.filter((rekord) => rekord.occurredAt === ostatniCzas)).map((rekord) =>
-    odnosnik(rekord.id, dane.korekty.find((korekta) => korekta.id === rekord.payload.correctionId)?.opis ?? 'Zastosowano zatwierdzoną zmianę', `${adresProjektu}/korekty`));
+    odnosnik(rekord.id, dane.korekty.find((korekta) => korekta.id === rekord.payload.correctionId)?.opis ?? 'Zastosowano zatwierdzoną zmianę',
+      `/projekty/${dane.korekty.find((korekta) => korekta.id === rekord.payload.correctionId)?.projektId ?? projekt.id}/korekty`));
   const wygenerowano = [projekt.zaktualizowano, ...zdarzenia.map((rekord) => rekord.occurredAt),
     ...decyzje.map((rekord) => rekord.zaktualizowano), ...dane.elementyPracy.filter((rekord) => rekord.projektId === projekt.id).map((rekord) => rekord.zaktualizowano),
     ...dane.blokady.filter((rekord) => rekord.projektId === projekt.id).map((rekord) => rekord.zaktualizowano),
@@ -76,15 +80,15 @@ export function wyliczStanProjektu(dane: DaneKopii, projekt: Projekt): ObrazProj
     uwaga.push({ id: `${projekt.id}:${typ}:${id}`, projektId: projekt.id, typ, waga, tytul, opis, powod, utworzono, odnosnikiZrodel });
   }
   if (!projekt.zarchiwizowano && !['COMPLETED', 'ABANDONED'].includes(projekt.status)) {
-    for (const bloker of blokery) dodaj('BLOCKER', bloker.id, bloker.tytul, bloker.opis, 'Bloker ma status „Aktywna”.', bloker.utworzono, [odnosnik(bloker.id, 'Otwórz bloker')], bloker.waga);
+    for (const bloker of blokery) dodaj('BLOCKER', bloker.id, bloker.tytul, bloker.opis, 'Bloker ma status „Aktywna”.', bloker.utworzono, [odnosnik(bloker.id, 'Otwórz bloker', `${adresProjektu}#blokada-${bloker.id}`)], bloker.waga);
     for (const decyzja of decyzje.filter((rekord) => rekord.status === 'PROPOSED')) dodaj('DECISION_REQUIRED', decyzja.id, decyzja.tytul, decyzja.opis,
-      'Decyzja ma status „Propozycja”; nie zaliczamy jej do obowiązujących decyzji.', decyzja.utworzono, [odnosnik(decyzja.id, 'Zweryfikuj decyzję', `${adresProjektu}/ustalenia`)]);
+      'Decyzja ma status „Propozycja”; nie zaliczamy jej do obowiązujących decyzji.', decyzja.utworzono, [odnosnik(decyzja.id, 'Zweryfikuj decyzję', `${adresProjektu}/ustalenia?decyzja=${encodeURIComponent(decyzja.id)}`)]);
     for (const element of nieaktualne) dodaj('STALE_DECISION', element.id, element.tytul, 'Sprawdź powiązanie pracy z decyzją.',
       'Aktywna praca odwołuje się do decyzji zastąpionej lub odrzuconej.', wygenerowano, [element, odnosnik(element.id, 'Sprawdź decyzje', `${adresProjektu}/ustalenia`)]);
     for (const wpis of uporzadkuj(dane.wpisy.filter((rekord) => rekord.projektId === projekt.id && rekord.status === 'UNPROCESSED'))) dodaj('UNPROCESSED_CAPTURE', wpis.id,
       'Wpis czeka na przetworzenie', wpis.trescOryginalna, 'Wpis ma status „Nieprzetworzony”.', wpis.utworzono, [odnosnik(wpis.id, 'Otwórz skrzynkę', '/inbox')]);
-    for (const korekta of uporzadkuj(dane.korekty.filter((rekord) => rekord.projektId === projekt.id && rekord.status === 'PROPOSED'))) dodaj('REVIEW_REQUIRED', korekta.id,
-      'Korekta czeka na rozstrzygnięcie', korekta.opis, 'Korekta pozostaje propozycją do czasu zastosowania zatwierdzonego zestawu zmian.', korekta.utworzono, [odnosnik(korekta.id, 'Zweryfikuj korektę', `${adresProjektu}/korekty`)]);
+    for (const korekta of uporzadkuj(korektyProjektu.filter((rekord) => rekord.status === 'PROPOSED'))) dodaj('REVIEW_REQUIRED', korekta.id,
+      'Korekta czeka na rozstrzygnięcie', korekta.opis, 'Korekta pozostaje propozycją do czasu zastosowania zatwierdzonego zestawu zmian.', korekta.utworzono, [odnosnik(korekta.id, 'Zweryfikuj korektę', `/projekty/${korekta.projektId}/korekty`)]);
     for (const analiza of uporzadkuj(dane.analizyWplywu.filter((rekord) => rekord.projektIds.includes(projekt.id) && rekord.zrodlo.typ !== 'CORRECTION'))) {
       for (const propozycja of uporzadkuj(analiza.propozycje.filter((rekord) => rekord.stan === 'PENDING'))) dodaj('REVIEW_REQUIRED', propozycja.id,
         propozycja.tytul, propozycja.uzasadnienie, 'Analiza wpływu zawiera propozycję oczekującą na zatwierdzenie. Nie jest to ustalenie.', analiza.utworzono,
@@ -116,7 +120,9 @@ export function utworzProjektorStanu() {
         elementyPracy: uporzadkuj(dane.elementyPracy.filter((rekord) => rekord.projektId === projekt.id)),
         pytania: uporzadkuj(dane.pytania.filter((rekord) => rekord.projektId === projekt.id)),
         blokady: uporzadkuj(dane.blokady.filter((rekord) => rekord.projektId === projekt.id)),
-        korekty: uporzadkuj(dane.korekty.filter((rekord) => rekord.projektId === projekt.id)),
+        korekty: uporzadkuj(dane.korekty.filter((rekord) => rekord.projektId === projekt.id
+          || dane.zdarzeniaDomenowe.some((zdarzenie) => zdarzenie.payload.correctionId === rekord.id && zdarzenie.projectIds.includes(projekt.id))
+          || (rekord.typCelu === 'DECISION' && dane.decyzje.some((decyzja) => decyzja.id === rekord.celId && decyzja.projektIds.includes(projekt.id))))),
         zdarzeniaDomenowe: uporzadkuj(dane.zdarzeniaDomenowe.filter((rekord) => rekord.projectIds.includes(projekt.id))),
         analizyWplywu: uporzadkuj(dane.analizyWplywu.filter((rekord) => rekord.projektIds.includes(projekt.id))),
         analizyWpisow: uporzadkuj(dane.analizyWpisow.filter((rekord) => wpisIds.has(rekord.wpisId))),
