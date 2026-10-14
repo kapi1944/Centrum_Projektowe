@@ -31,7 +31,7 @@ async function przygotuj() {
 describe('Kopie zapasowe', () => {
   it('adapter v1 ↔ v2 zachowuje stare magazyny, provenance i import schemaVersion 1', async () => {
     const { kopia } = await przygotuj();
-    const daneV1 = Object.fromEntries(Object.entries(kopia.data).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa)));
+    const daneV1 = Object.fromEntries(Object.entries(kopia.data).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe', 'polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody'].includes(nazwa)));
     const staraKopia = { ...kopia, schemaVersion: 1, data: daneV1 };
     const widok = kopiaDoWidokuV2(staraKopia);
     expect(widok.przebiegi[0].zgodnoscV1).toEqual(kopia.data.analizyWpisow[0]);
@@ -47,12 +47,12 @@ describe('Kopie zapasowe', () => {
     expect(() => widokDoKopiiV1(widok)).toThrow('bezstratnego');
     expect(() => kopiaDoWidokuV2({ ...kopia, schemaVersion: 2 })).toThrow();
   });
-  it('eksportuje spójny obraz wszystkich 16 magazynów i odtwarza oryginały, historię oraz relacje', async () => {
+  it('eksportuje spójny obraz wszystkich 19 magazynów i odtwarza oryginały, historię oraz relacje', async () => {
     const { kopia } = await przygotuj();
-    expect(nazwyMagazynow).toHaveLength(16);
+    expect(nazwyMagazynow).toHaveLength(19);
     expect(Object.keys(kopia.data)).toEqual(nazwyMagazynow);
     for (const nazwa of nazwyMagazynow) {
-      if (['korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa)) expect(kopia.data[nazwa]).toEqual([]);
+      if (['korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe', 'polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody'].includes(nazwa)) expect(kopia.data[nazwa]).toEqual([]);
       else expect(kopia.data[nazwa].length, nazwa).toBeGreaterThan(0);
     }
     const nazwaBazy = crypto.randomUUID();
@@ -76,7 +76,7 @@ describe('Kopie zapasowe', () => {
   it('odrzuca uszkodzony JSON, obcy format, nieobsługiwaną wersję i niepełną strukturę', async () => {
     const { repozytorium, kopia } = await przygotuj();
     expect(() => odczytajKopie('{')).toThrow('JSON');
-    for (const uszkodzona of [null, [], { ...kopia, format: 'obcy' }, { ...kopia, schemaVersion: 4 }, { ...kopia, exportedAt: 'wczoraj' }, { ...kopia, data: {} }, { ...kopia, data: { ...kopia.data, wpisy: null } }]) {
+    for (const uszkodzona of [null, [], { ...kopia, format: 'obcy' }, { ...kopia, schemaVersion: 5 }, { ...kopia, exportedAt: 'wczoraj' }, { ...kopia, data: {} }, { ...kopia, data: { ...kopia.data, wpisy: null } }]) {
       await expect(repozytorium.importujKopie(uszkodzona, 'zastap', true)).rejects.toBeTruthy();
     }
     expect(odczytajKopie(JSON.stringify(await repozytorium.eksportujKopie())).data).toEqual(kopia.data);

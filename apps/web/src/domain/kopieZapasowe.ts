@@ -8,22 +8,26 @@ import { statusyObszaru, statusyEtapu, statusyPracy, typyPracy, priorytetyPracy,
 import type { StanRealizacji } from './realizacja';
 import { migrujAnalize, type PrzebiegAnalizyWpisu } from './przebiegiAnaliz';
 import { typyKorekt, typyCelow, odczytajCel, type StanKorekt, type KorektaUzytkownika, type ZdarzenieKorekty, type ZestawZmianKorekty } from './korekty';
+import { sprawdzPolaczenie, sprawdzMigawkeRepozytorium, sprawdzDowod, sprawdzRelacjeRepozytoriow, sprawdzBrakSekretow, type StanRepozytoriow } from './kontekstRepozytorium';
 
-export interface DaneKopii extends StanRealizacji, StanKorekt {
+export interface DaneKopii extends StanRealizacji, StanKorekt, StanRepozytoriow {
   projekty: Projekt[]; wpisy: Wpis[]; zdarzenia: ZdarzenieAktywnosci[];
   decyzje: Decyzja[]; analizyWplywu: AnalizaWplywu[]; analizyWpisow: AnalizaWpisu[];
   przebiegiAnaliz: PrzebiegAnalizyWpisu[];
 }
 export interface KopiaZapasowa {
-  format: 'centrum-projektowe'; schemaVersion: 3; appVersion: string; exportedAt: string; data: DaneKopii;
+  format: 'centrum-projektowe'; schemaVersion: 4; appVersion: string; exportedAt: string; data: DaneKopii;
+}
+export interface KopiaZapasowaV3 extends Omit<KopiaZapasowa, 'schemaVersion' | 'data'> {
+  schemaVersion: 3; data: Omit<DaneKopii, keyof StanRepozytoriow>;
 }
 export interface KopiaZapasowaV2 extends Omit<KopiaZapasowa, 'schemaVersion' | 'data'> {
-  schemaVersion: 2; data: Omit<DaneKopii, keyof StanKorekt>;
+  schemaVersion: 2; data: Omit<DaneKopii, keyof StanKorekt | keyof StanRepozytoriow>;
 }
 export interface KopiaZapasowaV1 extends Omit<KopiaZapasowa, 'schemaVersion' | 'data'> {
-  schemaVersion: 1; data: Omit<DaneKopii, 'przebiegiAnaliz' | keyof StanKorekt>;
+  schemaVersion: 1; data: Omit<DaneKopii, 'przebiegiAnaliz' | keyof StanKorekt | keyof StanRepozytoriow>;
 }
-export type DowolnaKopia = KopiaZapasowa | KopiaZapasowaV1 | KopiaZapasowaV2;
+export type DowolnaKopia = KopiaZapasowa | KopiaZapasowaV1 | KopiaZapasowaV2 | KopiaZapasowaV3;
 export type TrybImportu = 'polacz' | 'zastap';
 
 type Walidator = (wartosc: unknown) => boolean;
@@ -64,6 +68,9 @@ const operacjaKorekty = obiekt({ id: identyfikator, rodzaj: wybor(['KOREKTA', 'W
 
 // Jedyny pełny rejestr magazynów: format, walidacja i transakcje korzystają z tych samych kluczy.
 export const schematDanych = {
+  polaczeniaRepozytoriow: { etykieta: 'Repozytoriów', sprawdz: sprawdzPolaczenie },
+  migawkiRepozytoriow: { etykieta: 'Obserwacji repozytoriów', sprawdz: sprawdzMigawkeRepozytorium },
+  dowody: { etykieta: 'Dowodów', sprawdz: sprawdzDowod },
   korekty: { etykieta: 'Korekt', sprawdz: obiekt({ id: identyfikator, projektId: identyfikator, typCelu: etykiety(typyCelow),
     celId: identyfikator, pole: opcjonalne(identyfikator), typ: etykiety(typyKorekt), poprzedniaWartosc: opcjonalne(tekst),
     nowaWartosc: opcjonalne(tekst), opis: identyfikator, powod: opcjonalne(tekst), typZrodla: wybor(['USER', 'SYSTEM', 'AI']),
@@ -130,23 +137,26 @@ export function pusteDaneKopii(): DaneKopii {
 }
 
 export function sprawdzDaneKopii(wartosc: unknown): asserts wartosc is DaneKopii {
-  sprawdzDane(wartosc, 3);
+  sprawdzDane(wartosc, 4);
 }
-function sprawdzDane(wartosc: unknown, wersjaKopii: 1 | 2 | 3) {
+function sprawdzDane(wartosc: unknown, wersjaKopii: 1 | 2 | 3 | 4) {
   if (!obiekt({})(wartosc)) throw new Error('Niepoprawna struktura danych kopii.');
   const dane = wartosc as DaneKopii;
-  const magazyny = nazwyMagazynow.filter((nazwa) => (wersjaKopii >= 2 || nazwa !== 'przebiegiAnaliz') && (wersjaKopii === 3 || !['korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa)));
+  const magazyny = nazwyMagazynow.filter((nazwa) => (wersjaKopii >= 2 || nazwa !== 'przebiegiAnaliz') && (wersjaKopii >= 3 || !['korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa))
+    && (wersjaKopii >= 4 || !['polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody'].includes(nazwa)));
   if (Object.keys(dane).some((nazwa) => !magazyny.includes(nazwa as keyof DaneKopii))) throw new Error('Kopia zawiera nieobsługiwany magazyn.');
   for (const nazwa of magazyny) {
     if (!lista(schematDanych[nazwa].sprawdz)(dane[nazwa])) throw new Error(`Niepoprawne rekordy: ${schematDanych[nazwa].etykieta}.`);
     unikalne(dane[nazwa].map((rekord) => rekord.id));
   }
   sprawdzRelacje(dane, wersjaKopii);
+  if (wersjaKopii >= 4) sprawdzRelacjeRepozytoriow(dane);
+  sprawdzBrakSekretow(dane);
 }
 function unikalne(wartosci: readonly string[]) {
   if (new Set(wartosci).size !== wartosci.length) throw new Error('Kopia zawiera powtórzone identyfikatory lub klucze unikalne.');
 }
-function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3) {
+function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3 | 4) {
   function znajdz<K extends keyof DaneKopii>(magazyn: K, id: string): DaneKopii[K][number] {
     const rekord = dane[magazyn].find((rekord) => rekord.id === id);
     if (!rekord) throw new Error('Kopia zawiera odwołanie do nieistniejącego rekordu.');
@@ -241,7 +251,7 @@ function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3) {
       if (zWynikiem.filter((przebieg) => przebieg.sourceId === sourceId && przebieg.preferred).length !== 1) throw new Error('Źródło musi mieć dokładnie jedną aktualną analizę z wynikiem.');
     }
   }
-  if (wersjaKopii === 3) {
+  if (wersjaKopii >= 3) {
     unikalne(dane.propozycjeZmian.map((propozycja) => propozycja.correctionId));
     unikalne(dane.zestawyZmian.map((zestaw) => zestaw.correctionId));
     unikalne(dane.zestawyZmian.map((zestaw) => zestaw.idempotencyKey));
@@ -348,16 +358,16 @@ export function sprawdzHistorieZmianyWartosci(dane: DaneKopii, zdarzenie: Zdarze
 export function sprawdzKopie(wartosc: unknown): asserts wartosc is DowolnaKopia {
   if (!obiekt({ format: wybor(['centrum-projektowe']) })(wartosc)) throw new Error('To nie jest kopia Centrum Projektowego.');
   const kopia = wartosc as DowolnaKopia;
-  if (![1, 2, 3].includes(kopia.schemaVersion)) throw new Error('Nieobsługiwana wersja schematu kopii.');
+  if (![1, 2, 3, 4].includes(kopia.schemaVersion)) throw new Error('Nieobsługiwana wersja schematu kopii.');
   if (!obiekt({ appVersion: identyfikator, exportedAt: data })(kopia)) throw new Error('Niepoprawne metadane kopii.');
   sprawdzDane(kopia.data, kopia.schemaVersion);
 }
 export function migrujKopie(wartosc: unknown): KopiaZapasowa {
   sprawdzKopie(wartosc);
   const kopia = structuredClone(wartosc);
-  if (kopia.schemaVersion === 3) return kopia;
-  const wynik: KopiaZapasowa = { ...kopia, schemaVersion: 3, data: { ...pusteDaneKopii(), ...kopia.data,
-    przebiegiAnaliz: kopia.schemaVersion === 2 ? kopia.data.przebiegiAnaliz : kopia.data.analizyWpisow.map((analiza) => migrujAnalize(analiza, 'BACKUP_V1')) } };
+  if (kopia.schemaVersion === 4) return kopia;
+  const wynik: KopiaZapasowa = { ...kopia, schemaVersion: 4, data: { ...pusteDaneKopii(), ...kopia.data,
+    przebiegiAnaliz: kopia.schemaVersion >= 2 ? (kopia as KopiaZapasowaV2).data.przebiegiAnaliz : kopia.data.analizyWpisow.map((analiza) => migrujAnalize(analiza, 'BACKUP_V1')) } };
   sprawdzDaneKopii(wynik.data);
   return wynik;
 }
@@ -367,7 +377,7 @@ export function odczytajKopie(tekstKopii: string): DowolnaKopia {
   sprawdzKopie(kopia);
   return kopia;
 }
-function uporzadkuj(wartosc: unknown): unknown {
+export function uporzadkuj(wartosc: unknown): unknown {
   if (Array.isArray(wartosc)) return wartosc.map(uporzadkuj);
   if (wartosc && typeof wartosc === 'object') return Object.fromEntries(Object.entries(wartosc).filter(([, wartosc]) => wartosc !== undefined).sort(([pierwszy], [drugi]) => pierwszy.localeCompare(drugi)).map(([klucz, wartosc]) => [klucz, uporzadkuj(wartosc)]));
   return wartosc;

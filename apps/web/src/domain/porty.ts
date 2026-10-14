@@ -6,6 +6,12 @@ import type { AnalizaWplywu, Decyzja, OperacjaUstalen, WynikUstalen } from './us
 import type { OperacjaRealizacji, StanRealizacji, WynikRealizacji } from './realizacja';
 import type { DaneKopii } from './kopieZapasowe';
 import type { OperacjaKorekty, StanKorekt } from './korekty';
+import type { OperacjaRepozytorium, StanRepozytoriow } from './kontekstRepozytorium';
+
+export interface RepozytoriumKontekstu {
+  pobierzRepozytoria(): Promise<StanRepozytoriow>;
+  wykonajOperacjeRepozytorium(operacja: OperacjaRepozytorium): Promise<void>;
+}
 
 export interface RepozytoriumKorekt {
   pobierzKorekty(): Promise<StanKorekt>;

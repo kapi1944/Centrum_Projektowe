@@ -2,6 +2,12 @@
 
 Stan kodu: `c0ce40b`, 2026-10-09. „2.0” oznacza istniejący fundament i przyjęty cel, nie ukończoną migrację. Wszystkie momenty poniżej są **warunkami przyszłych etapów**, nie terminami i nie zgodą na ich rozpoczęcie.
 
+## Aktualizacja zgodności — Etapy 8–9
+
+ProjectSnapshot i AttentionItem są projekcjami danych bez osobnego zapisu. [Repozytoria i kontekst](REPOSITORY_CONTEXT.md) dodają trzy kanoniczne magazyny do tej samej bazy: IndexedDB v8, upgrade v7 bez przepisywania starych rekordów. Backup v4 obejmuje 19 magazynów; nadal przyjmuje v1/v2/v3 i zachowuje relacje, historię, konflikty oraz atomowość. Nowe encje nie mają odpowiedników w starych formatach i nie są po cichu spłaszczane przez adapter v1. Scalanie starej kopii nie usuwa nowych lokalnych encji. Rozpoznane sekrety blokują eksport/import bez modyfikacji danych. Downgrade bazy nie jest zapewniony.
+
+Repozytorium może należeć do wielu projektów bez duplikatu tożsamości. Obserwacje i dowody są niezmienne, nowe stany mają nowe ID. Port kontekstu rozszerza istniejącą fasadę i UnitOfWork. Evidence używa `PolaczenieZrodla` z integration-sdk; nie ma drugiego SourceLink ani aktywnego adaptera API. Pakiet kontekstu ma osobny format JSON w wersji 1 i nie służy do stosowania zmian. Poniższa macierz Etapów 6–7 dokumentuje ich historyczny stan.
+
 ## Aktualizacja zgodności — Etapy 6–7
 
 [Przebiegi analiz](ANALYSIS_RUNS.md) zachowują stare ID, wyniki, review i provenance, obsługując wiele runów i jedno preferred. [Korekty](CORRECTION_PIPELINE.md) rozszerzają istniejące PropozycjaZmiany/ZestawZmian i AnalizaWplywu; ich nowe rekordy nie mają bezstratnego odpowiednika w backupie v1. Adapter widoków v1 ↔ v2 pozostaje bez zmian i odmawia spłaszczenia nowych danych.

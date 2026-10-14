@@ -127,7 +127,7 @@ describe('Deterministyczny aktualny stan projektu', () => {
   it('odtwarza stan po eksporcie i imporcie bez zapisywania dodatkowego źródła prawdy', async () => {
     const dane = zmienCel(przygotuj(), true);
     const repozytorium = utworzRepozytoriumIndexedDb(crypto.randomUUID());
-    await repozytorium.importujKopie({ format: 'centrum-projektowe', schemaVersion: 3, appVersion: '0.0.0', exportedAt: pozniej, data: dane }, 'zastap', true);
+    await repozytorium.importujKopie({ format: 'centrum-projektowe', schemaVersion: 4, appVersion: '0.0.0', exportedAt: pozniej, data: dane }, 'zastap', true);
     const odczytane = (await repozytorium.eksportujKopie()).data;
     expect(obraz(odczytane)).toEqual(obraz(dane));
   });

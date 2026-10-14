@@ -43,6 +43,7 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje
     <h1>{projekt.nazwa}</h1>
     <Link to={`/projekty/${projekt.id}/ustalenia`}>Ustalenia projektu</Link>
     <p><Link to={`/projekty/${projekt.id}/korekty`}>Korekty i rewizje planu</Link></p>
+    <p><Link to={`/projekty/${projekt.id}/repozytoria`}>Repozytoria i generator kontekstu</Link></p>
     <p>{statusyProjektu[projekt.status]}</p>
     {projekt.zarchiwizowano && <p role="status">Projekt archiwalny od {formatujDate(projekt.zarchiwizowano)}. Dane i historia zostały zachowane.</p>}
     <p className="surowy-wpis">{projekt.opis || 'Brak opisu.'}</p>

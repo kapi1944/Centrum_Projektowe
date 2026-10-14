@@ -82,14 +82,14 @@ describe('Wersjonowane przebiegi analiz', () => {
     const repozytorium = utworzRepozytoriumIndexedDb(nazwaBazy);
     const nowa = await repozytorium.eksportujKopie();
     const { przebiegiAnaliz } = nowa.data;
-    const dawne = Object.fromEntries(Object.entries(nowa.data).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa)));
+    const dawne = Object.fromEntries(Object.entries(nowa.data).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe', 'polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody'].includes(nazwa)));
     expect(dawne).toEqual(kopia.data);
     expect(przebiegiAnaliz).toEqual([expect.objectContaining({ id: 'a1', sourceId: 'w1', sourceType: 'CAPTURE', status: 'LEGACY_IMPORTED',
       reviewStatus: 'APPLIED', startedAt: null, finishedAt: null, preferred: true, createdAt: czas,
       migrationSource: { kind: 'INDEXEDDB_V5', legacyAnalysisId: 'a1' } })]);
     expect(przebiegiAnaliz[0]).not.toHaveProperty('model'); expect(przebiegiAnaliz[0]).not.toHaveProperty('promptVersion');
     expect(przebiegiAnaliz[0].output?.elementy[0].tresc).toBe('Oryginalna decyzja');
-    expect(await sprawdzSchemat(nazwaBazy, 7)).toMatchObject({ wersja: 7, unikalnyWpis: false, indeksZrodla: false });
+    expect(await sprawdzSchemat(nazwaBazy, 8)).toMatchObject({ wersja: 8, unikalnyWpis: false, indeksZrodla: false });
     expect((await utworzRepozytoriumIndexedDb(nazwaBazy).eksportujKopie()).data).toEqual(nowa.data);
   });
 
@@ -145,11 +145,11 @@ describe('Wersjonowane przebiegi analiz', () => {
     const repozytorium = utworzRepozytoriumIndexedDb(crypto.randomUUID());
     await repozytorium.importujKopie(JSON.parse(JSON.stringify(kopia)), 'zastap', true);
     const nowa = odczytajKopie(JSON.stringify(await repozytorium.eksportujKopie()));
-    expect(nowa.schemaVersion).toBe(3);
-    if (nowa.schemaVersion !== 3) throw new Error('Eksporter musi zapisać format v3.');
+    expect(nowa.schemaVersion).toBe(4);
+    if (nowa.schemaVersion !== 4) throw new Error('Eksporter musi zapisać format v4.');
     expect(nowa.data.przebiegiAnaliz[0].migrationSource?.kind).toBe('BACKUP_V1');
     const { przebiegiAnaliz } = nowa.data;
-    const zachowane = Object.fromEntries(Object.entries(nowa.data).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa)));
+    const zachowane = Object.fromEntries(Object.entries(nowa.data).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe', 'polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody'].includes(nazwa)));
     expect(zachowane).toEqual(kopia.data); expect(przebiegiAnaliz[0].reviewStatus).toBe('APPLIED');
     await generuj(repozytorium, 'a2');
     const zWieloma = odczytajKopie(JSON.stringify(await repozytorium.eksportujKopie()));

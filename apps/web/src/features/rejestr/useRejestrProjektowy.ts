@@ -3,6 +3,7 @@ import type { DaneKopii } from '../../domain/kopieZapasowe';
 import { pustaRealizacja, type OperacjaRealizacji } from '../../domain/realizacja';
 import { useEffect, useState } from 'react';
 import { utworzProjektorStanu } from '../../domain/stanProjektu';
+import { pusteRepozytoria, type OperacjaRepozytorium } from '../../domain/kontekstRepozytorium';
 import type { DaneProjektu, KontekstZapisu, Projekt, Wpis, ZdarzenieAktywnosci, ZmianaProjektu } from '../../domain/modele';
 import type { AkcjaWpisu } from '../../domain/modele';
 import type { AnalizaWplywu, Decyzja, OperacjaUstalen } from '../../domain/ustalenia';
@@ -27,14 +28,15 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
   const [przebiegiAnaliz, ustawPrzebiegiAnaliz] = useState<PrzebiegAnalizyWpisu[]>([]);
   const [korekty, ustawKorekty] = useState(pusteKorekty);
   const [realizacja, ustawRealizacje] = useState(pustaRealizacja);
+  const [repozytoria, ustawRepozytoria] = useState(pusteRepozytoria);
   const [stan, ustawStan] = useState<'ladowanie' | 'gotowy' | 'blad'>('ladowanie');
   const [blad, ustawBlad] = useState('');
   const [odswiezenie, ustawOdswiezenie] = useState(0);
 
   useEffect(() => {
     let aktywny = true;
-    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia(), repozytorium.pobierzDecyzje(), repozytorium.pobierzAnalizyWplywu(), repozytorium.pobierzAnalizyWpisow(), repozytorium.pobierzRealizacje(), repozytorium.pobierzPrzebiegiAnaliz(), repozytorium.pobierzKorekty()])
-      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia, odczytaneDecyzje, odczytaneAnalizy, odczytaneAnalizyWpisow, odczytanaRealizacja, odczytanePrzebiegi, odczytaneKorekty]) => {
+    Promise.all([repozytorium.pobierzProjekty(), repozytorium.pobierzWpisy(), repozytorium.pobierzZdarzenia(), repozytorium.pobierzDecyzje(), repozytorium.pobierzAnalizyWplywu(), repozytorium.pobierzAnalizyWpisow(), repozytorium.pobierzRealizacje(), repozytorium.pobierzPrzebiegiAnaliz(), repozytorium.pobierzKorekty(), repozytorium.pobierzRepozytoria()])
+      .then(([odczytaneProjekty, odczytaneWpisy, odczytaneZdarzenia, odczytaneDecyzje, odczytaneAnalizy, odczytaneAnalizyWpisow, odczytanaRealizacja, odczytanePrzebiegi, odczytaneKorekty, odczytaneRepozytoria]) => {
         if (!aktywny) return;
         ustawProjekty(odczytaneProjekty);
         ustawWpisy(odczytaneWpisy);
@@ -45,6 +47,7 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
         ustawPrzebiegiAnaliz(odczytanePrzebiegi);
         ustawRealizacje(odczytanaRealizacja);
         ustawKorekty(odczytaneKorekty);
+        ustawRepozytoria(odczytaneRepozytoria);
         ustawStan('gotowy');
       })
       .catch(() => {
@@ -153,7 +156,11 @@ export function useRejestrProjektowy(repozytorium: RepozytoriumProjektowe, dosta
     try { await uruchomAnalizePoKorekcie(repozytorium, id, dostawcaAnalizy, utworzKontekst); }
     finally { ustawOdswiezenie((poprzednie) => poprzednie + 1); }
   }
-  const daneKorekt: DaneKopii = { ...realizacja, ...korekty, projekty, wpisy, zdarzenia, decyzje, analizyWplywu: analizy, analizyWpisow, przebiegiAnaliz };
+  async function wykonajRepozytorium(operacja: OperacjaRepozytorium) {
+    await repozytorium.wykonajOperacjeRepozytorium(operacja);
+    ustawRepozytoria(await repozytorium.pobierzRepozytoria());
+  }
+  const daneKorekt: DaneKopii = { ...repozytoria, ...realizacja, ...korekty, projekty, wpisy, zdarzenia, decyzje, analizyWplywu: analizy, analizyWpisow, przebiegiAnaliz };
   const obrazyProjektow = projektor(daneKorekt);
-  return { obrazyProjektow, daneKorekt, wykonajKorekte, analizujKorekte, odswiez: () => ustawOdswiezenie((poprzednie) => poprzednie + 1), projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, przebiegiAnaliz, preferujAnalize, realizacja, wykonajRealizacje, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
+  return { wykonajRepozytorium, obrazyProjektow, daneKorekt, wykonajKorekte, analizujKorekte, odswiez: () => ustawOdswiezenie((poprzednie) => poprzednie + 1), projekty, wpisy, zdarzenia, decyzje, analizy, analizyWpisow, przebiegiAnaliz, preferujAnalize, realizacja, wykonajRealizacje, stan, blad, dodajProjekt, zmienProjekt, dodajWpis, wykonajAkcjeWpisu, wykonajUstalenie, analizujWpis, wykonajAnalizeWpisu };
 }

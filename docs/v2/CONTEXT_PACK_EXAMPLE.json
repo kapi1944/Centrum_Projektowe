@@ -1,0 +1,106 @@
+{
+  "aktualnaMigawka": {
+    "aktualneCele": [
+      "Naprawa lokalnego formularza"
+    ],
+    "podsumowanie": "Zgłoszono błąd walidacji; wynik naprawy wymaga testu.",
+    "projektId": "projekt-demo",
+    "wygenerowano": "2026-10-14T10:00:00.000Z"
+  },
+  "cel": "Napraw walidację formularza i sprawdź zachowanie treści po błędzie zapisu.",
+  "dowody": [],
+  "format": "centrum-projektowe-context",
+  "migawkaRepozytorium": {
+    "commitSha": "abcdef1234567",
+    "dowodIds": [],
+    "galaz": "main",
+    "id": "obserwacja-demo",
+    "opis": "Nie jest to odczyt rzeczywistego repozytorium.",
+    "opisZrodla": "Syntetyczny wpis ręczny",
+    "ostrzezenia": [
+      "Wymaga sprawdzenia w lokalnym repozytorium."
+    ],
+    "repoConnectionId": "repo-demo",
+    "weryfikacja": "NIEZWERYFIKOWANE",
+    "zaobserwowano": "2026-10-14T10:00:00.000Z",
+    "zrodlo": "RECZNE"
+  },
+  "niepewnosci": [
+    "Stan projektu pochodzi z lokalnych zapisów i zatwierdzeń. Nie jest automatycznym dowodem stanu kodu.",
+    "Brak połączenia z GitHub API. Żaden commit nie został automatycznie zweryfikowany przez GitHub.",
+    "Brak kanonicznego modelu dokumentów; lista dokumentów jest pusta.",
+    "Korekty opisują historyczne zastosowania; obecne ustalenia wynikają z aktualnej migawki.",
+    "Wybrany stan repozytorium pozostaje niezweryfikowany w tym pakiecie."
+  ],
+  "ograniczenia": [],
+  "ostatnieKorekty": [],
+  "projekt": {
+    "id": "projekt-demo",
+    "nazwa": "Projekt demonstracyjny (dane syntetyczne)",
+    "status": "IDEA"
+  },
+  "repozytorium": {
+    "domyslnaGalaz": "main",
+    "dostawca": "LOKALNE",
+    "id": "repo-demo",
+    "nazwa": "Aplikacja demonstracyjna",
+    "notatka": "Ścieżka przykładowa, bez automatycznego dostępu.",
+    "projektIds": [
+      "projekt-demo"
+    ],
+    "rodzaj": "APLIKACJA",
+    "sciezkaLokalna": "C:\\Przyklad\\Aplikacja",
+    "utworzono": "2026-10-14T10:00:00.000Z",
+    "wersja": 1,
+    "weryfikacja": "NIEZWERYFIKOWANE",
+    "zaktualizowano": "2026-10-14T10:00:00.000Z"
+  },
+  "wersja": 1,
+  "wybraneBlokery": [],
+  "wybraneDecyzje": [
+    {
+      "czytelneId": "DEC-0001",
+      "id": "decyzja-demo",
+      "nazwaZrodla": "Użytkownik demonstracyjny",
+      "notatki": "",
+      "odniesienieZrodla": "",
+      "opis": "Nie dodawaj automatycznej wysyłki danych.",
+      "powiazaneElementy": [],
+      "projektIds": [
+        "projekt-demo"
+      ],
+      "status": "ACCEPTED",
+      "typZrodla": "USER",
+      "tytul": "Zachowaj zapis lokalny",
+      "utworzono": "2026-10-14T10:00:00.000Z",
+      "wersja": 1,
+      "wpisZrodlowyId": null,
+      "zaktualizowano": "2026-10-14T10:00:00.000Z",
+      "zastapionaPrzezId": null
+    }
+  ],
+  "wybraneDokumenty": [],
+  "wybranePrace": [],
+  "wybranePytania": [],
+  "wygenerowano": "2026-10-14T10:00:00.000Z",
+  "zrodla": [
+    {
+      "adres": "/projekty/projekt-demo/ustalenia?decyzja=decyzja-demo",
+      "id": "decyzja-demo",
+      "rewizja": "1",
+      "typ": "DECISION"
+    },
+    {
+      "adres": "/projekty/projekt-demo/repozytoria",
+      "id": "obserwacja-demo",
+      "rewizja": "abcdef1234567",
+      "typ": "REPOSITORY_SNAPSHOT"
+    },
+    {
+      "adres": "/projekty/projekt-demo/repozytoria",
+      "id": "repo-demo",
+      "rewizja": "1",
+      "typ": "REPOSITORY"
+    }
+  ]
+}

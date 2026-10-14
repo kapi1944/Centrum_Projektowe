@@ -20,7 +20,7 @@ function staraKopia(): KopiaZapasowaV1 {
   dane.wpisy.push(utworzWpis('Proponuję Google Drive.', 'p1', 'w1', czas));
   dane.elementyPracy.push({ id: 'r1', projektId: 'p1', tytul: 'Backup', opis: '', typ: 'TASK', status: 'TODO',
     decyzjaIds: [], priorytet: 'LOW', utworzono: czas, zaktualizowano: czas, wersja: 1 });
-  const stare = Object.fromEntries(Object.entries(dane).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa))) as KopiaZapasowaV1['data'];
+  const stare = Object.fromEntries(Object.entries(dane).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe', 'polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody'].includes(nazwa))) as KopiaZapasowaV1['data'];
   return { format: 'centrum-projektowe', schemaVersion: 1, appVersion: '0.0.0', exportedAt: czas, data: stare };
 }
 async function przygotuj(kopia: unknown = staraKopia()) {
@@ -312,14 +312,14 @@ describe('Korekty, review i atomowy zestaw zmian', () => {
     const kopia: KopiaZapasowaV1 | KopiaZapasowaV2 = wersja === 1 ? stara : { ...stara, schemaVersion: 2, data: { ...stara.data, przebiegiAnaliz: [] } };
     const { repozytorium } = await przygotuj(kopia); const id = await utworz(repozytorium);
     await reviewuj(repozytorium, id); await zastosuj(repozytorium, id);
-    const nowa = await repozytorium.eksportujKopie(); expect(nowa.schemaVersion).toBe(3);
+    const nowa = await repozytorium.eksportujKopie(); expect(nowa.schemaVersion).toBe(4);
     const { repozytorium: odtworzone } = await przygotuj(JSON.parse(JSON.stringify(nowa)));
     expect((await odtworzone.eksportujKopie()).data).toEqual(JSON.parse(JSON.stringify(nowa.data)));
   });
   it('upgrade v6 → v7 nie zmienia runów, review, oryginałów i danych; dodaje puste magazyny', async () => {
     const { repozytorium } = await przygotuj(); await uruchomAnalizeWpisu(repozytorium, (await repozytorium.pobierzWpisy())[0], new RuleBasedAnalysisProvider(), kontekst);
     const kopia = await repozytorium.eksportujKopie(); const nazwaBazy = crypto.randomUUID();
-    const stare = Object.fromEntries(Object.entries(kopia.data).filter(([nazwa]) => !['korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa)));
+    const stare = Object.fromEntries(Object.entries(kopia.data).filter(([nazwa]) => !['korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe', 'polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody'].includes(nazwa)));
     await new Promise<void>((rozwiaz, odrzuc) => {
       const zadanie = indexedDB.open(nazwaBazy, 6);
       zadanie.onupgradeneeded = () => { for (const [nazwa, rekordy] of Object.entries(stare)) {

@@ -8,9 +8,11 @@ Docelowa zależność: UI web → przypadki użycia → reguły domeny/porty →
 
 ## Runtime po Etapie 7
 
+Aktualny runtime rozszerzają [Etap 8 — stan i uwaga](PROJECT_SNAPSHOT.md) oraz [Etap 9 — repozytoria i kontekst](REPOSITORY_CONTEXT.md). ProjectSnapshot jest odtwarzalną projekcją kanonicznych danych. RepoConnection, RepositorySnapshot i Evidence korzystają z tej samej bazy IndexedDB v8 oraz backupu v4 (19 magazynów). ContextPack jest wybiórczym, deterministycznym wynikiem bez zapisu domeny, LLM i sieci. Evidence używa istniejącego `PolaczenieZrodla` (SourceLink); adapter GitHub API pozostaje poza wdrożeniem. Poniższy opis Etapu 7 zachowuje jego punkt odniesienia.
+
 Etap 6 (`0299fd3`) wprowadził wiele AnalysisRun na źródło, jedno preferred, IndexedDB v6 i backup v2. Etap 7 dodaje [pipeline korekt](CORRECTION_PIPELINE.md): Correction → istniejący ChangeProposal → istniejąca AnalizaWplywu → review → ChangeSet → trwałe DomainEventEnvelope i ActivityEvent → bieżąca projekcja. Wykonywalna domena pozostaje lokalna w web; wspólne kontrakty są rozszerzone bez drugich modeli projektu/decyzji.
 
-UnitOfWork otrzymuje port rewizji dla atomowego odczytu, sprawdzenia i zapisu skutków korekty. Correction/ChangeProposal/ChangeSet/DomainEvents mają trwałe magazyny w IndexedDB v7, a backup v3 zachowuje czytniki v1/v2. Historyczne źródła, wyniki, review i provenance pozostają dostępne. Nowy run po zaakceptowanej korekcie jest jawny i nadal wymaga review wyniku. Brak LLM, ProjectSnapshot, Attention Engine, dodatkowych integracji i alternatywnego storage.
+UnitOfWork otrzymuje port rewizji dla atomowego odczytu, sprawdzenia i zapisu skutków korekty. Correction/ChangeProposal/ChangeSet/DomainEvents mają trwałe magazyny dodane w IndexedDB v7, a backup v3 zachowuje czytniki v1/v2. Historyczne źródła, wyniki, review i provenance pozostają dostępne. Nowy run po zaakceptowanej korekcie jest jawny i nadal wymaga review wyniku. Brak LLM, dodatkowych integracji i alternatywnego storage. Stan i uwaga są dostępne od Etapu 8.
 
 Poniższa macierz opisuje historyczny baseline `c0ce40b`; stan runów i korekt został rozszerzony w Etapach 6–7 zgodnie z powyższym opisem.
 
@@ -39,7 +41,7 @@ Konteksty nie są mikroserwisami ani nakazem osobnych baz. Polecenie wywołuje r
 
 Źródło ≠ analiza ≠ propozycja ≠ decyzja. Nowy run zachowuje wcześniejsze wyniki i nie zatwierdza ich. Preferencja runu nie stosuje zmian. `PENDING`/`REJECTED` nie mają skutków, `EDITED` zachowuje oryginał i korektę. Apply ponownie sprawdza review, oczekiwane rewizje i relacje; encje, historia oraz marker idempotencji zatwierdzają się atomowo. Identyczny retry zwraca poprzedni rezultat, inna treść pod tym samym kluczem jest błędem.
 
-Utworzona propozycja decyzji pozostaje `PROPOSED`, a wpływ wymaga kolejnego review. Projekcje `ProjectSnapshot`/`AttentionItem` mają być odtwarzalne, z kursorem i deduplikacją; nie zmieniają ręcznego punktu powrotu. W HEAD nie istnieją ich modele wykonywalne ani magazyny. Deklaracja `KopertaZdarzeniaDomenowego` jest pierwszym kontraktem; nie zawiera jeszcze wszystkich docelowych danych powiązania apply/revizji opisanych w ADR.
+Utworzona propozycja decyzji pozostaje `PROPOSED`, a wpływ wymaga kolejnego review. Projekcje `ProjectSnapshot`/`AttentionItem` są odtwarzalne z pełnego stanu, bez osobnych magazynów i bez zmiany ręcznego punktu powrotu; gwarancje odtwarzania opisuje Etap 8. Trwałe koperty korekt wiążą zastosowanie z Correction i ChangeSet; wcześniejsza historia nie staje się fikcyjnym zastosowaniem.
 
 ## Odpowiedzialność workspaces
 

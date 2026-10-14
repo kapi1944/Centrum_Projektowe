@@ -10,6 +10,7 @@ import { utworzJednostkePracyIndexedDb } from './jednostkaPracyIndexedDb';
 import { aktualizujPunktPowrotu, zapiszNowyWpis } from '../application/przypadkiUzycia';
 import { migrujAnalize, wykonajOperacjePrzebiegu, type PrzebiegAnalizyWpisu } from '../domain/przebiegiAnaliz';
 import { wykonajKorekte } from '../domain/korekty';
+import { wykonajOperacjeRepozytorium } from '../domain/kontekstRepozytorium';
 
 export function utworzRepozytoriumIndexedDb(
   nazwaBazy = 'centrum-projektowe',
@@ -20,10 +21,11 @@ export function utworzRepozytoriumIndexedDb(
         odrzuc(new Error('Ta przeglądarka nie udostępnia IndexedDB.'));
         return;
       }
-      const zadanie = indexedDB.open(nazwaBazy, 7);
+      const zadanie = indexedDB.open(nazwaBazy, 8);
       let zablokowano = false;
       zadanie.onupgradeneeded = (zdarzenie) => {
         const baza = zadanie.result;
+        if (zdarzenie.oldVersion < 8) for (const nazwa of ['polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody']) baza.createObjectStore(nazwa, { keyPath: 'id' });
         if (zdarzenie.oldVersion < 7) {
           for (const nazwa of ['korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe']) baza.createObjectStore(nazwa, { keyPath: 'id' });
         }
@@ -191,6 +193,24 @@ export function utworzRepozytoriumIndexedDb(
   }
   return {
     jednostkaPracy,
+    pobierzRepozytoria: async () => {
+      const dane = await repozytoriumKorekt();
+      return { polaczeniaRepozytoriow: dane.polaczeniaRepozytoriow, migawkiRepozytoriow: dane.migawkiRepozytoriow, dowody: dane.dowody };
+    },
+    wykonajOperacjeRepozytorium: (operacja) => {
+      const przyjeta = structuredClone(operacja);
+      return jednostkaPracy.wykonaj(['rewizje'], (repozytoria, zakoncz) => {
+        repozytoria.rewizje.pobierz((przed) => {
+          const po = wykonajOperacjeRepozytorium(przed, przyjeta);
+          sprawdzDaneKopii(po);
+          for (const magazyn of ['polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody'] as const) for (const rekord of po[magazyn]) {
+            const poprzedni = przed[magazyn].find((poprzedni) => poprzedni.id === rekord.id);
+            if (JSON.stringify(poprzedni) !== JSON.stringify(rekord)) repozytoria.rewizje.zapisz(magazyn, rekord, !poprzedni);
+          }
+          zakoncz(undefined);
+        });
+      });
+    },
     pobierzKorekty: async () => {
       const kopia = await repozytoriumKorekt();
       return { korekty: kopia.korekty, propozycjeZmian: kopia.propozycjeZmian, zestawyZmian: kopia.zestawyZmian, zdarzeniaDomenowe: kopia.zdarzeniaDomenowe };
@@ -218,7 +238,7 @@ export function utworzRepozytoriumIndexedDb(
             try {
               // Spójny obraz wszystkich magazynów pochodzi z jednej transakcji.
               sprawdzDaneKopii(dane);
-              rozwiaz({ format: 'centrum-projektowe', schemaVersion: 3, appVersion: daneAplikacji.version, exportedAt: new Date().toISOString(), data: dane });
+              rozwiaz({ format: 'centrum-projektowe', schemaVersion: 4, appVersion: daneAplikacji.version, exportedAt: new Date().toISOString(), data: dane });
             } catch (blad) { odrzuc(blad); }
           };
         });
