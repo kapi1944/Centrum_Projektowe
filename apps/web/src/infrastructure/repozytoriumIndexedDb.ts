@@ -238,7 +238,7 @@ export function utworzRepozytoriumIndexedDb(
             try {
               // Spójny obraz wszystkich magazynów pochodzi z jednej transakcji.
               sprawdzDaneKopii(dane);
-              rozwiaz({ format: 'centrum-projektowe', schemaVersion: 4, appVersion: daneAplikacji.version, exportedAt: new Date().toISOString(), data: dane });
+              rozwiaz({ format: 'centrum-projektowe', schemaVersion: 5, appVersion: daneAplikacji.version, exportedAt: new Date().toISOString(), data: dane });
             } catch (blad) { odrzuc(blad); }
           };
         });

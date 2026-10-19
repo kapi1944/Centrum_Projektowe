@@ -16,8 +16,9 @@ export interface DaneKopii extends StanRealizacji, StanKorekt, StanRepozytoriow 
   przebiegiAnaliz: PrzebiegAnalizyWpisu[];
 }
 export interface KopiaZapasowa {
-  format: 'centrum-projektowe'; schemaVersion: 4; appVersion: string; exportedAt: string; data: DaneKopii;
+  format: 'centrum-projektowe'; schemaVersion: 5; appVersion: string; exportedAt: string; data: DaneKopii;
 }
+export interface KopiaZapasowaV4 extends Omit<KopiaZapasowa, 'schemaVersion'> { schemaVersion: 4 }
 export interface KopiaZapasowaV3 extends Omit<KopiaZapasowa, 'schemaVersion' | 'data'> {
   schemaVersion: 3; data: Omit<DaneKopii, keyof StanRepozytoriow>;
 }
@@ -27,7 +28,7 @@ export interface KopiaZapasowaV2 extends Omit<KopiaZapasowa, 'schemaVersion' | '
 export interface KopiaZapasowaV1 extends Omit<KopiaZapasowa, 'schemaVersion' | 'data'> {
   schemaVersion: 1; data: Omit<DaneKopii, 'przebiegiAnaliz' | keyof StanKorekt | keyof StanRepozytoriow>;
 }
-export type DowolnaKopia = KopiaZapasowa | KopiaZapasowaV1 | KopiaZapasowaV2 | KopiaZapasowaV3;
+export type DowolnaKopia = KopiaZapasowa | KopiaZapasowaV4 | KopiaZapasowaV1 | KopiaZapasowaV2 | KopiaZapasowaV3;
 export type TrybImportu = 'polacz' | 'zastap';
 
 type Walidator = (wartosc: unknown) => boolean;
@@ -137,9 +138,9 @@ export function pusteDaneKopii(): DaneKopii {
 }
 
 export function sprawdzDaneKopii(wartosc: unknown): asserts wartosc is DaneKopii {
-  sprawdzDane(wartosc, 4);
+  sprawdzDane(wartosc, 5);
 }
-function sprawdzDane(wartosc: unknown, wersjaKopii: 1 | 2 | 3 | 4) {
+function sprawdzDane(wartosc: unknown, wersjaKopii: 1 | 2 | 3 | 4 | 5) {
   if (!obiekt({})(wartosc)) throw new Error('Niepoprawna struktura danych kopii.');
   const dane = wartosc as DaneKopii;
   const magazyny = nazwyMagazynow.filter((nazwa) => (wersjaKopii >= 2 || nazwa !== 'przebiegiAnaliz') && (wersjaKopii >= 3 || !['korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe'].includes(nazwa))
@@ -156,7 +157,7 @@ function sprawdzDane(wartosc: unknown, wersjaKopii: 1 | 2 | 3 | 4) {
 function unikalne(wartosci: readonly string[]) {
   if (new Set(wartosci).size !== wartosci.length) throw new Error('Kopia zawiera powtórzone identyfikatory lub klucze unikalne.');
 }
-function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3 | 4) {
+function sprawdzRelacje(dane: DaneKopii, wersjaKopii: 1 | 2 | 3 | 4 | 5) {
   function znajdz<K extends keyof DaneKopii>(magazyn: K, id: string): DaneKopii[K][number] {
     const rekord = dane[magazyn].find((rekord) => rekord.id === id);
     if (!rekord) throw new Error('Kopia zawiera odwołanie do nieistniejącego rekordu.');
@@ -358,15 +359,15 @@ export function sprawdzHistorieZmianyWartosci(dane: DaneKopii, zdarzenie: Zdarze
 export function sprawdzKopie(wartosc: unknown): asserts wartosc is DowolnaKopia {
   if (!obiekt({ format: wybor(['centrum-projektowe']) })(wartosc)) throw new Error('To nie jest kopia Centrum Projektowego.');
   const kopia = wartosc as DowolnaKopia;
-  if (![1, 2, 3, 4].includes(kopia.schemaVersion)) throw new Error('Nieobsługiwana wersja schematu kopii.');
+  if (![1, 2, 3, 4, 5].includes(kopia.schemaVersion)) throw new Error('Nieobsługiwana wersja schematu kopii.');
   if (!obiekt({ appVersion: identyfikator, exportedAt: data })(kopia)) throw new Error('Niepoprawne metadane kopii.');
   sprawdzDane(kopia.data, kopia.schemaVersion);
 }
 export function migrujKopie(wartosc: unknown): KopiaZapasowa {
   sprawdzKopie(wartosc);
   const kopia = structuredClone(wartosc);
-  if (kopia.schemaVersion === 4) return kopia;
-  const wynik: KopiaZapasowa = { ...kopia, schemaVersion: 4, data: { ...pusteDaneKopii(), ...kopia.data,
+  if (kopia.schemaVersion === 5) return kopia;
+  const wynik: KopiaZapasowa = { ...kopia, schemaVersion: 5, data: { ...pusteDaneKopii(), ...kopia.data,
     przebiegiAnaliz: kopia.schemaVersion >= 2 ? (kopia as KopiaZapasowaV2).data.przebiegiAnaliz : kopia.data.analizyWpisow.map((analiza) => migrujAnalize(analiza, 'BACKUP_V1')) } };
   sprawdzDaneKopii(wynik.data);
   return wynik;

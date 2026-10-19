@@ -66,7 +66,7 @@ export function generujPakietKontekstu(dane: DaneKopii, wybor: WyborKontekstu, w
   if (wybor.repozytoriumId && !repo) throw new Error('Repozytorium nie należy do projektu.');
   const obserwacja = repo && ostatniaMigawka(dane, repo.id);
   const migawkaRepo = obserwacja ? { ...obserwacja, dowodIds: obserwacja.dowodIds.filter((id) => wybor.dowodIds.includes(id)),
-    weryfikacja: obserwacja.weryfikacja === 'POTWIERDZONE_LOKALNIE' && dowody.some((dowod) => obserwacja.dowodIds.includes(dowod.id) && dowod.weryfikacja === 'POTWIERDZONE_LOKALNIE' && dowod.rewizja === obserwacja.commitSha) ? 'POTWIERDZONE_LOKALNIE' as const : 'NIEZWERYFIKOWANE' as const } : undefined;
+    weryfikacja: obserwacja.weryfikacja !== 'NIEZWERYFIKOWANE' && dowody.some((dowod) => obserwacja.dowodIds.includes(dowod.id) && dowod.weryfikacja === obserwacja.weryfikacja && dowod.rewizja === obserwacja.commitSha) ? obserwacja.weryfikacja : 'NIEZWERYFIKOWANE' as const } : undefined;
   const korekty = wybierz(dostepneKorekty(dane, projekt.id), wybor.korektaIds).map((korekta): KorektaPakietu => {
     const zestaw = dane.zestawyZmian.find((zestaw) => zestaw.correctionId === korekta.id);
     if (!zestaw) throw new Error('Brak zatwierdzonego zestawu korekty.');
@@ -150,7 +150,7 @@ export function sprawdzPakietKontekstu(wartosc: unknown): asserts wartosc is Pak
   if (pakiet.repozytorium && (!schematDanych.polaczeniaRepozytoriow.sprawdz(pakiet.repozytorium) || !pakiet.repozytorium.projektIds.includes(pakiet.projekt.id))) blad();
   if (pakiet.migawkaRepozytorium && (!schematDanych.migawkiRepozytoriow.sprawdz(pakiet.migawkaRepozytorium) || pakiet.migawkaRepozytorium.repoConnectionId !== pakiet.repozytorium?.id || pakiet.migawkaRepozytorium.dowodIds.some((id) => !pakiet.dowody.some((dowod) => dowod.id === id)))) blad();
   const migawka = pakiet.migawkaRepozytorium;
-  if (migawka?.weryfikacja === 'POTWIERDZONE_LOKALNIE' && !pakiet.dowody.some((dowod) => migawka.dowodIds.includes(dowod.id) && dowod.weryfikacja === 'POTWIERDZONE_LOKALNIE' && dowod.rewizja === migawka.commitSha
+  if (migawka && migawka.weryfikacja !== 'NIEZWERYFIKOWANE' && !pakiet.dowody.some((dowod) => migawka.dowodIds.includes(dowod.id) && dowod.weryfikacja === migawka.weryfikacja && dowod.rewizja === migawka.commitSha
     && ((dowod.typZrodla === 'REPOSITORY' && dowod.zrodloId === migawka.repoConnectionId) || (dowod.typZrodla === 'REPOSITORY_SNAPSHOT' && dowod.zrodloId === migawka.id)))) blad();
   function wymagaZrodla(typ: ZrodloPakietu['typ'], id: string) { if (!pakiet.zrodla.some((zrodlo) => zrodlo.typ === typ && zrodlo.id === id)) blad(); }
   for (const [typ, rekordy] of [['DECISION', pakiet.wybraneDecyzje], ['WORK_ITEM', pakiet.wybranePrace], ['QUESTION', pakiet.wybranePytania], ['BLOCKER', pakiet.wybraneBlokery]] as const) for (const rekord of rekordy) wymagaZrodla(typ, rekord.id);

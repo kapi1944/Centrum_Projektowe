@@ -1,3 +1,7 @@
+import { useEffect } from 'react';
+import { utworzCzytnikGitHub } from '../infrastructure/githubApi';
+import { utworzSynchronizacjeRepozytorium } from '../application/synchronizujRepozytorium';
+import { statusPolaczenia, statusyGitHub } from '../domain/synchronizacjaGitHub';
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { DaneKopii } from '../domain/kopieZapasowe';
@@ -5,6 +9,8 @@ import { rodzajeRepozytorium, dostawcyRepozytorium, stanyWeryfikacji, zrodlaObse
 import { generujPakietKontekstu, dostepneKorekty, eksportujMarkdown, eksportujJson, type PakietKontekstu, type WyborKontekstu } from '../domain/pakietKontekstu';
 import { wyliczStanProjektu } from '../domain/stanProjektu';
 import { formatujDate } from '../shared/formatujDate';
+
+const synchronizuj = utworzSynchronizacjeRepozytorium(utworzCzytnikGitHub());
 
 type Zapisz = (operacja: OperacjaRepozytorium) => Promise<void>;
 export function RepozytoriaKontekst({ dane, wykonaj }: { dane: DaneKopii; wykonaj: Zapisz }) {
@@ -33,6 +39,7 @@ export function RepozytoriaKontekst({ dane, wykonaj }: { dane: DaneKopii; wykona
           <p>Projekty: {repo.projektIds.map((id) => dane.projekty.find((projekt) => projekt.id === id)?.nazwa).join(', ')}</p>
           <p className="surowy-wpis">{repo.notatka}</p>
           <button onClick={() => { ustawNowy(false); ustawEdycje(repo); }}>Edytuj metadane: {repo.nazwa}</button>
+          <SynchronizacjaGitHub repo={repo} dane={dane} wykonaj={wykonaj} />
           <h4>Aktualna obserwacja</h4>{ostatnia ? <OpisObserwacji rekord={ostatnia} /> : <p>Brak zarejestrowanej obserwacji.</p>}
           <details><summary>Historia obserwacji ({historia.length})</summary>{historia.map((rekord) => <div key={rekord.id}><OpisObserwacji rekord={rekord} /></div>)}</details>
           <details><summary>Dodaj obserwację: {repo.nazwa}</summary><FormularzObserwacji repo={repo} dane={dane} wykonaj={wykonaj} /></details>
@@ -47,9 +54,37 @@ export function RepozytoriaKontekst({ dane, wykonaj }: { dane: DaneKopii; wykona
     <GeneratorKontekstu dane={dane} projektId={projekt.id} />
   </>;
 }
+function SynchronizacjaGitHub({ repo, dane, wykonaj }: { repo: PolaczenieRepozytorium; dane: DaneKopii; wykonaj: Zapisz }) {
+  const zapis = useZapis(wykonaj);
+  const kontroler = useRef<AbortController | null>(null);
+  const [teraz, ustawTeraz] = useState(() => Date.now());
+  useEffect(() => () => kontroler.current?.abort(), []);
+  const status = zapis.zajety ? 'SPRAWDZANIE' : statusPolaczenia(repo, teraz);
+  function uruchom() {
+    void zapis.zapisz(async () => {
+      kontroler.current = new AbortController();
+      await synchronizuj(repo, dane, wykonaj, kontroler.current.signal);
+      ustawTeraz(Date.now());
+    });
+  }
+  return <section aria-label={`Synchronizacja ${repo.nazwa}`}>
+    <p role="status">Status: {statusyGitHub[status]}</p>
+    <p>Ostatnia synchronizacja (próba): {repo.github ? formatujDate(repo.github.ostatniaProba) : 'Brak'}</p>
+    <p>Ostatnia poprawna obserwacja: {repo.github?.ostatniaObserwacja ? formatujDate(repo.github.ostatniaObserwacja) : 'Brak'}</p>
+    <p>Domyślna gałąź: {repo.domyslnaGalaz ?? 'Nieznana'}</p>
+    {repo.github?.tozsamosc && <p>Publiczne · {repo.github.tozsamosc.archiwalne ? 'Archiwalne' : 'Aktywne'}</p>}
+    <p>{repo.github?.komunikat}</p>
+    {repo.github?.ponowPo && <p>Można ponowić po: {formatujDate(repo.github.ponowPo)}</p>}
+    <button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={uruchom}>Sprawdź połączenie</button>
+    <button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={uruchom}>Synchronizuj</button>
+    {zapis.zajety && <button onClick={() => kontroler.current?.abort()}>Anuluj sprawdzanie</button>}
+    <p role="status">{zapis.komunikat}</p>
+  </section>;
+}
 function OpisObserwacji({ rekord }: { rekord: MigawkaRepozytorium }) {
-  return <><p>Gałąź: {rekord.galaz} · Commit: {rekord.commitSha || 'Nieznany'} · {stanyWeryfikacji[rekord.weryfikacja]}</p>
+  return <><p>Gałąź: {rekord.galaz} · Commit: {rekord.commitSha ? <span title={rekord.commitSha}>{rekord.commitSha.slice(0, 8)}<details><summary>Pełny SHA</summary><code>{rekord.commitSha}</code></details></span> : 'Nieznany'} · {stanyWeryfikacji[rekord.weryfikacja]}</p>
     <p>{formatujDate(rekord.zaobserwowano)} · {zrodlaObserwacji[rekord.zrodlo]} · {rekord.opisZrodla}</p><p className="surowy-wpis">{rekord.opis}</p>
+    {rekord.github && <><a href={`${rekord.github.tozsamosc.adres}/commit/${rekord.commitSha}`} target="_blank" rel="noreferrer">Commit na GitHub</a><details><summary>Commity ({rekord.github.commity.length}) i gałęzie ({rekord.github.galezie.length})</summary>{rekord.github.commity.map((commit) => <p key={commit.sha}><a title={commit.sha} href={`${rekord.github!.tozsamosc.adres}/commit/${commit.sha}`} target="_blank" rel="noreferrer">{commit.sha.slice(0, 8)}</a> {commit.opis}</p>)}{rekord.github.galezie.map((galaz) => <p key={galaz.nazwa}>{galaz.nazwa} · <span title={galaz.sha}>{galaz.sha.slice(0, 8)}</span></p>)}</details></>}
     {rekord.ostrzezenia.map((tekst, numer) => <p key={numer}>Ostrzeżenie: {tekst}</p>)}</>;
 }
 function useZapis(wykonaj: Zapisz) {
@@ -74,7 +109,7 @@ function FormularzRepozytorium({ dane, projektId, poczatkowy, wykonaj, zamknij }
     const formularz = new FormData(zdarzenie.currentTarget);
     const tekst = (pole: string) => String(formularz.get(pole) ?? '').trim();
     const czas = new Date().toISOString();
-    const rekord: PolaczenieRepozytorium = { id, projektIds: [...wybraneProjekty].sort(), nazwa: tekst('nazwa'), rodzaj: tekst('rodzaj') as PolaczenieRepozytorium['rodzaj'], dostawca: tekst('dostawca') as PolaczenieRepozytorium['dostawca'],
+    const rekord: PolaczenieRepozytorium = { ...(poczatkowy?.github ? { github: poczatkowy.github } : {}), id, projektIds: [...wybraneProjekty].sort(), nazwa: tekst('nazwa'), rodzaj: tekst('rodzaj') as PolaczenieRepozytorium['rodzaj'], dostawca: tekst('dostawca') as PolaczenieRepozytorium['dostawca'],
       ...(tekst('adres') ? { adresZdalny: tekst('adres') } : {}), ...(tekst('sciezka') ? { sciezkaLokalna: tekst('sciezka') } : {}), ...(tekst('galaz') ? { domyslnaGalaz: tekst('galaz') } : {}),
       weryfikacja: tekst('weryfikacja') as PolaczenieRepozytorium['weryfikacja'], notatka: tekst('notatka'), utworzono: poczatkowy?.utworzono ?? czas, zaktualizowano: czas, wersja: (poczatkowy?.wersja ?? 0) + 1 };
     void zapis.zapisz(async () => { await wykonaj({ rodzaj: 'zapisz', rekord, oczekiwanaWersja: poczatkowy?.wersja ?? null }); zamknij(); });
@@ -87,7 +122,7 @@ function FormularzRepozytorium({ dane, projektId, poczatkowy, wykonaj, zamknij }
     <label>Zdalny URL <input name="adres" type="url" defaultValue={poczatkowy?.adresZdalny} /></label>
     <label>Lokalna ścieżka <input name="sciezka" defaultValue={poczatkowy?.sciezkaLokalna} /></label>
     <label>Domyślna gałąź <input name="galaz" defaultValue={poczatkowy?.domyslnaGalaz} /></label>
-    <label>Weryfikacja metadanych <select name="weryfikacja" defaultValue={poczatkowy?.weryfikacja}>{Object.entries(stanyWeryfikacji).map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
+    <label>Weryfikacja metadanych <select name="weryfikacja" defaultValue={poczatkowy?.weryfikacja}>{Object.entries(stanyWeryfikacji).filter(([klucz]) => klucz !== 'GITHUB_API').map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
     <label>Notatka <textarea name="notatka" defaultValue={poczatkowy?.notatka} /></label>
     <p>Wybierz projekty korzystające z tej samej tożsamości repozytorium:</p>
     {dane.projekty.map((projekt) => <label key={projekt.id}><input type="checkbox" checked={wybraneProjekty.includes(projekt.id)} onChange={(zdarzenie) => ustawProjekty(zdarzenie.target.checked ? [...wybraneProjekty, projekt.id] : wybraneProjekty.filter((id) => id !== projekt.id))} />{projekt.nazwa}</label>)}
@@ -124,7 +159,7 @@ function FormularzObserwacji({ repo, dane, wykonaj }: { repo: PolaczenieRepozyto
     });
   }
   return <form className="formularz-realizacji" onSubmit={wyslij}><fieldset disabled={zapis.zajety}>
-    <legend>Nowa obserwacja</legend><label>Źródło obserwacji <select value={zrodlo} onChange={(zdarzenie) => ustawZrodlo(zdarzenie.target.value as typeof zrodlo)}>{Object.entries(zrodlaObserwacji).map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
+    <legend>Nowa obserwacja</legend><label>Źródło obserwacji <select value={zrodlo} onChange={(zdarzenie) => ustawZrodlo(zdarzenie.target.value as typeof zrodlo)}>{Object.entries(zrodlaObserwacji).filter(([klucz]) => klucz !== 'GITHUB_API').map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
     <label>Opis źródła / nazwa raportu <input name="zrodlo" required /></label>
     {zrodlo === 'RECZNE' ? <><label>Gałąź <input name="galaz" required defaultValue={repo.domyslnaGalaz} /></label><label>Commit SHA (niezweryfikowany) <input name="sha" pattern="[a-fA-F0-9]{7,64}" /></label>
       <label>Czas obserwacji (ISO) <input value={czas} onChange={(zdarzenie) => ustawCzas(zdarzenie.target.value)} required /></label><label>Opis stanu <textarea name="opis" /></label><label>Ostrzeżenia (po jednym w wierszu) <textarea name="ostrzezenia" /></label></> : <>
@@ -151,7 +186,7 @@ function FormularzDowodu({ dane, projektId, wykonaj }: { dane: DaneKopii; projek
   }}><fieldset disabled={zapis.zajety}><legend>Nowy dowód / odniesienie</legend>
     <label>Typ źródła <select value={typ} onChange={(zdarzenie) => ustawTyp(zdarzenie.target.value as typeof typ)}>{Object.entries(typyZrodelDowodu).map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
     <label>Rekord źródłowy <select name="zrodlo" required key={typ}>{zrodla.map((rekord) => <option key={rekord.id} value={rekord.id}>{'nazwa' in rekord ? rekord.nazwa : 'tytul' in rekord ? rekord.tytul : 'opis' in rekord ? rekord.opis : rekord.id}</option>)}</select></label>
-    <label>Pochodzenie <select value={pochodzenie} onChange={(zdarzenie) => ustawPochodzenie(zdarzenie.target.value as typeof pochodzenie)}>{Object.entries(pochodzeniaDowodu).map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
+    <label>Pochodzenie <select value={pochodzenie} onChange={(zdarzenie) => ustawPochodzenie(zdarzenie.target.value as typeof pochodzenie)}>{Object.entries(pochodzeniaDowodu).filter(([klucz]) => klucz !== 'GITHUB_API').map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
     <label key={pochodzenie}>Weryfikacja dowodu <select name="weryfikacja"><option value="NIEZWERYFIKOWANE">Niezweryfikowane</option>{['TEST', 'ODCZYT_REPOZYTORIUM'].includes(pochodzenie) && <option value="POTWIERDZONE_LOKALNIE">Potwierdzone lokalnie przez użytkownika</option>}</select></label>
     <label>Opis wyniku / sposobu sprawdzenia <textarea name="opis" required /></label><label>Znana rewizja <input name="rewizja" /></label><label>Czas dowodu (ISO) <input name="czas" defaultValue={new Date().toISOString()} required /></label>
     <button disabled={!zrodla.length}>Zapisz dowód</button></fieldset><p role="status">{zapis.komunikat}</p></form>;
