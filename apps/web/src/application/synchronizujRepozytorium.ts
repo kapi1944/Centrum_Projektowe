@@ -21,7 +21,8 @@ export function utworzSynchronizacjeRepozytorium(czytnik: CzytnikRepozytorium, z
         if (dane.polaczeniaRepozytoriow.some((inne) => inne.id !== repo.id && inne.github?.tozsamosc?.identyfikator === odczyt.tozsamosc.identyfikator)) throw new BladGitHub('BLAD', 'Ta tożsamość ma już powiązanie. Użyj „Powiąż istniejące repozytorium”.');
       } catch (blad) {
         const kontrolowany = blad instanceof BladGitHub ? blad : new BladGitHub('BLAD', 'Nie udało się zweryfikować bezpiecznej obserwacji GitHub.');
-        const { ponowPo: _poprzedniaBlokada, ...poprzedni } = repo.github ?? {};
+        const poprzedni = { ...repo.github };
+        delete poprzedni.ponowPo;
         const rekord = aktualizuj({ ...poprzedni, status: kontrolowany.status, ostatniaProba: proba, komunikat: kontrolowany.message, ...(kontrolowany.ponowPo ? { ponowPo: kontrolowany.ponowPo } : {}) });
         await zapisz({ rodzaj: 'synchronizuj', rekord, oczekiwanaWersja: repo.wersja });
         return;
@@ -36,7 +37,7 @@ export function utworzSynchronizacjeRepozytorium(czytnik: CzytnikRepozytorium, z
       await zapisz({ rodzaj: 'synchronizuj', rekord, oczekiwanaWersja: repo.wersja,
         migawka: { id, repoConnectionId: repo.id, github: odczyt, galaz: odczyt.tozsamosc.domyslnaGalaz, commitSha: sha, zaobserwowano: czas, zrodlo: 'GITHUB_API', opisZrodla: 'Anonimowy odczyt GitHub REST API', opis: odczyt.commity[0]!.opis, ostrzezenia: odczyt.ograniczoneGalezie ? ['Lista gałęzi ograniczona do 100.'] : [], dowodIds: [dowodId], weryfikacja: 'GITHUB_API' },
         dowod: { id: dowodId, projektIds: [...repo.projektIds], typZrodla: 'REPOSITORY_SNAPSHOT', zrodloId: id, pochodzenie: 'GITHUB_API', opis: 'Odczyt metadanych, HEAD, ograniczonej historii i gałęzi przez GitHub REST API.', rewizja: sha, zaobserwowano: czas, weryfikacja: 'GITHUB_API',
-          polaczenieZrodla: { contractVersion: 1, idempotencyKey: `github:${odczyt.tozsamosc.identyfikator}:${id}`, providerId: 'GITHUB', connectionId: repo.id, resourceType: 'repository', externalId: String(odczyt.tozsamosc.identyfikator), externalRevision: sha, url: `${odczyt.tozsamosc.adres}/commit/${sha}` } } });
+          polaczenieZrodla: { contractVersion: 1, idempotencyKey: `github:${repo.id}:repository:${odczyt.tozsamosc.identyfikator}`, providerId: 'GITHUB', connectionId: repo.id, resourceType: 'repository', externalId: String(odczyt.tozsamosc.identyfikator), externalRevision: sha, url: `${odczyt.tozsamosc.adres}/commit/${sha}` } } });
     })();
     trwajace.set(repo.id, zadanie);
     void zadanie.finally(() => trwajace.delete(repo.id)).catch(() => undefined);

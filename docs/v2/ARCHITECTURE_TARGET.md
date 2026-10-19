@@ -6,6 +6,10 @@ Kontynuujemy jedno local-first Centrum Projektowe. [BASELINE](BASELINE.md) opisu
 
 Docelowa zależność: UI web → przypadki użycia → reguły domeny/porty → adaptery. UI odzwierciedla wynik po trwałym zakończeniu zapisu. Dostawca analizy działa poza transakcją i nie otrzymuje prawa zapisu domeny. Hub jest opcjonalny; lokalny zapis i backup nie wymagają konta ani sieci.
 
+## Aktualizacja — Etap 10.1
+
+[Odczyt GitHub](GITHUB_INTEGRATION.md) działa przez port czytnika, adapter REST i usługę synchronizacji. Rozszerza istniejące RepoConnection, RepositorySnapshot i Evidence oraz SourceLink z SDK. Zapis jest atomowy w tej samej bazie IndexedDB v8; backup v5 importuje v1–v4. Integracja jest anonimowa, publiczna i tylko do odczytu, uruchamiana kliknięciem użytkownika. Poniższe opisy Etapów 7–9 zachowują historyczny stan.
+
 ## Runtime po Etapie 7
 
 Aktualny runtime rozszerzają [Etap 8 — stan i uwaga](PROJECT_SNAPSHOT.md) oraz [Etap 9 — repozytoria i kontekst](REPOSITORY_CONTEXT.md). ProjectSnapshot jest odtwarzalną projekcją kanonicznych danych. RepoConnection, RepositorySnapshot i Evidence korzystają z tej samej bazy IndexedDB v8 oraz backupu v4 (19 magazynów). ContextPack jest wybiórczym, deterministycznym wynikiem bez zapisu domeny, LLM i sieci. Evidence używa istniejącego `PolaczenieZrodla` (SourceLink); adapter GitHub API pozostaje poza wdrożeniem. Poniższy opis Etapu 7 zachowuje jego punkt odniesienia.

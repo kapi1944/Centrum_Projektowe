@@ -2,6 +2,10 @@
 
 Stan kodu: `c0ce40b`, 2026-10-09. „2.0” oznacza istniejący fundament i przyjęty cel, nie ukończoną migrację. Wszystkie momenty poniżej są **warunkami przyszłych etapów**, nie terminami i nie zgodą na ich rozpoczęcie.
 
+## Aktualizacja zgodności — Etap 10.1
+
+[GitHub](GITHUB_INTEGRATION.md) dodaje opcjonalne pola połączenia i obserwacji oraz źródło/weryfikację `GITHUB_API`. IndexedDB v8 i 19 magazynów pozostają bez zmiany; stare rekordy nie są przepisywane. Backup v5 waliduje nowe pola i relacje, zachowując import v1–v4 oraz atomowość. ContextPack nadal korzysta z kanonicznych modeli i wykluczenie dowodu obniża weryfikację także dla GitHub. Dawna aplikacja może odrzucić nowe dane; downgrade nie jest zapewniony. Poniższe sekcje dokumentują wcześniejsze etapy.
+
 ## Aktualizacja zgodności — Etapy 8–9
 
 ProjectSnapshot i AttentionItem są projekcjami danych bez osobnego zapisu. [Repozytoria i kontekst](REPOSITORY_CONTEXT.md) dodają trzy kanoniczne magazyny do tej samej bazy: IndexedDB v8, upgrade v7 bez przepisywania starych rekordów. Backup v4 obejmuje 19 magazynów; nadal przyjmuje v1/v2/v3 i zachowuje relacje, historię, konflikty oraz atomowość. Nowe encje nie mają odpowiedników w starych formatach i nie są po cichu spłaszczane przez adapter v1. Scalanie starej kopii nie usuwa nowych lokalnych encji. Rozpoznane sekrety blokują eksport/import bez modyfikacji danych. Downgrade bazy nie jest zapewniony.

@@ -60,7 +60,9 @@ function bezpiecznyAdres(wartosc: unknown): boolean {
 }
 export function sprawdzPolaczenie(wartosc: unknown): boolean {
   return rekord(wartosc) && pola(wartosc, ['github', 'id', 'projektIds', 'nazwa', 'rodzaj', 'dostawca', 'adresZdalny', 'sciezkaLokalna', 'domyslnaGalaz', 'weryfikacja', 'utworzono', 'zaktualizowano', 'notatka', 'wersja'])
-    && (wartosc.github === undefined || sprawdzStanGitHub(wartosc.github))
+    && (wartosc.github === undefined || (sprawdzStanGitHub(wartosc.github) && wartosc.dostawca === 'GITHUB'
+      && (!wartosc.github.tozsamosc || (wartosc.adresZdalny === wartosc.github.tozsamosc.adres && wartosc.domyslnaGalaz === wartosc.github.tozsamosc.domyslnaGalaz))))
+    && (wartosc.weryfikacja !== 'GITHUB_API' || (rekord(wartosc.github) && wartosc.github.tozsamosc !== undefined))
     && id(wartosc.id) && id(wartosc.nazwa) && listaId(wartosc.projektIds) && wartosc.projektIds.length > 0
     && tekst(wartosc.rodzaj) && Object.hasOwn(rodzajeRepozytorium, wartosc.rodzaj)
     && tekst(wartosc.dostawca) && Object.hasOwn(dostawcyRepozytorium, wartosc.dostawca)
@@ -127,12 +129,15 @@ export function sprawdzRelacjeRepozytoriow(dane: DaneKopii): void {
   for (const migawka of dane.migawkiRepozytoriow) {
     const repo = dane.polaczeniaRepozytoriow.find((repo) => repo.id === migawka.repoConnectionId);
     if (!repo || migawka.dowodIds.some((id) => !dane.dowody.some((dowod) => dowod.id === id && dowod.projektIds.every((projektId) => repo.projektIds.includes(projektId))))) throw new Error('Niepoprawne odniesienie obserwacji repozytorium.');
-    if (migawka.weryfikacja === 'GITHUB_API' && (!migawka.github || migawka.commitSha !== migawka.github.commity[0]?.sha
+    if (migawka.weryfikacja === 'GITHUB_API' && (!repo.github?.tozsamosc || repo.github.tozsamosc.identyfikator !== migawka.github?.tozsamosc.identyfikator || !migawka.github || migawka.commitSha !== migawka.github.commity[0]?.sha
       || migawka.galaz !== migawka.github.tozsamosc.domyslnaGalaz
       || !dane.dowody.some((dowod) => migawka.dowodIds.includes(dowod.id) && dowod.weryfikacja === 'GITHUB_API'
         && dowod.typZrodla === 'REPOSITORY_SNAPSHOT' && dowod.zrodloId === migawka.id && dowod.rewizja === migawka.commitSha
         && dowod.polaczenieZrodla?.externalId === String(migawka.github?.tozsamosc.identyfikator)
-        && dowod.polaczenieZrodla.connectionId === repo.id))) throw new Error('Obserwacja GitHub wymaga zgodnego dowodu API.');
+        && dowod.polaczenieZrodla.connectionId === repo.id
+        && dowod.polaczenieZrodla.externalRevision === migawka.commitSha
+        && dowod.polaczenieZrodla.providerId === 'GITHUB'
+        && dowod.polaczenieZrodla.url === `${migawka.github?.tozsamosc.adres}/commit/${migawka.commitSha}`))) throw new Error('Obserwacja GitHub wymaga zgodnego dowodu API.');
     if (migawka.weryfikacja === 'POTWIERDZONE_LOKALNIE' && !dane.dowody.some((dowod) => migawka.dowodIds.includes(dowod.id)
       && dowod.weryfikacja === 'POTWIERDZONE_LOKALNIE' && dowod.rewizja === migawka.commitSha
       && ((dowod.typZrodla === 'REPOSITORY' && dowod.zrodloId === repo.id) || (dowod.typZrodla === 'REPOSITORY_SNAPSHOT' && dowod.zrodloId === migawka.id)))) throw new Error('Potwierdzony commit wymaga dowodu odczytu lub testu tej rewizji.');

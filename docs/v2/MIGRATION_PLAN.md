@@ -1,5 +1,9 @@
 # Plan dalszej migracji Centrum Projektowego 2.0
 
+## Stan osiągnięty po Etapie 10.1
+
+[Integracja GitHub](GITHUB_INTEGRATION.md) wdraża świadomy odczyt publicznych repozytoriów, metadanych, HEAD, ograniczonej historii i gałęzi. Istniejące snapshoty i dowody są zachowywane; błędy nie usuwają ostatniego stanu. IndexedDB pozostaje v8, backup v5 zachowuje import v1–v4. Brak uwierzytelnienia, monitorowania, Issues i PR. Etap 10.2 wymaga osobnego zlecenia. Poniższe opisy są historyczne.
+
 ## Stan osiągnięty po Etapach 8–9
 
 [Etap 8](PROJECT_SNAPSHOT.md) udostępnia ProjectSnapshot i Attention Engine jako projekcje istniejącego stanu, bez dodatkowego storage. [Etap 9](REPOSITORY_CONTEXT.md) dodaje lokalne RepoConnection, RepositorySnapshot i Evidence przez istniejący UnitOfWork oraz wybiórczy ContextPack z podglądem, Markdown i JSON. IndexedDB v7 → v8 dodaje trzy puste magazyny; backup v4 zachowuje czytniki v1–v3, spójny eksport, walidację referencji i atomowy import. Testy obejmują upgrade v7, stare kopie, restore v4 oraz rollback. SourceLink pozostaje istniejącym kontraktem SDK; nie wdrożono GitHub API, wysyłki, LLM ani synchronizacji. Kolejny etap wymaga odrębnego zlecenia. Poniższy stan Etapu 7 i baseline są historycznym punktem odniesienia.

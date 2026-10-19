@@ -5,34 +5,34 @@ type KlientHttp = (adres: string, opcje: RequestInit) => Promise<Response>;
 interface RepozytoriumDto { id: number; name: string; owner: { login: string }; html_url: string; default_branch: string; visibility: string; private: boolean; archived: boolean }
 interface CommitDto { sha: string; commit: { message: string; committer: { date: string } } }
 interface GalazDto { name: string; commit: { sha: string } }
-function rekord(w: unknown): w is Record<string, unknown> { return !!w && typeof w === 'object' && !Array.isArray(w); }
+function rekord(wartosc: unknown): wartosc is Record<string, unknown> { return !!wartosc && typeof wartosc === 'object' && !Array.isArray(wartosc); }
 function niepoprawna(): never { throw new BladGitHub('BLAD', 'GitHub zwrócił niepoprawną lub niespójną odpowiedź. Nie zapisano obserwacji.'); }
-function metadane(w: unknown): TozsamoscGitHub {
-  if (!rekord(w) || !rekord(w.owner) || typeof w.id !== 'number' || typeof w.name !== 'string' || typeof w.owner.login !== 'string' || typeof w.html_url !== 'string' || typeof w.default_branch !== 'string' || typeof w.visibility !== 'string' || typeof w.private !== 'boolean' || typeof w.archived !== 'boolean') return niepoprawna();
-  const dto = w as unknown as RepozytoriumDto;
+function metadane(wartosc: unknown): TozsamoscGitHub {
+  if (!rekord(wartosc) || !rekord(wartosc.owner) || typeof wartosc.id !== 'number' || typeof wartosc.name !== 'string' || typeof wartosc.owner.login !== 'string' || typeof wartosc.html_url !== 'string' || typeof wartosc.default_branch !== 'string' || typeof wartosc.visibility !== 'string' || typeof wartosc.private !== 'boolean' || typeof wartosc.archived !== 'boolean') return niepoprawna();
+  const dto = wartosc as unknown as RepozytoriumDto;
   if (dto.private || dto.visibility !== 'public') throw new BladGitHub('BRAK_DOSTEPU', 'Ten adapter odczytuje tylko publiczne repozytoria.');
   const wynik = { identyfikator: dto.id, wlasciciel: dto.owner.login, nazwa: dto.name, adres: dto.html_url, domyslnaGalaz: dto.default_branch, widocznosc: 'public' as const, archiwalne: dto.archived };
   if (!sprawdzTozsamoscGitHub(wynik)) return niepoprawna();
   return wynik;
 }
-function commit(w: unknown): CommitRepozytorium {
-  if (!rekord(w) || !poprawnySha(w.sha) || !rekord(w.commit) || typeof w.commit.message !== 'string' || !rekord(w.commit.committer) || typeof w.commit.committer.date !== 'string' || !Number.isFinite(Date.parse(w.commit.committer.date))) return niepoprawna();
-  const dto = w as unknown as CommitDto;
+function odczytajCommit(wartosc: unknown): CommitRepozytorium {
+  if (!rekord(wartosc) || !poprawnySha(wartosc.sha) || !rekord(wartosc.commit) || typeof wartosc.commit.message !== 'string' || !rekord(wartosc.commit.committer) || typeof wartosc.commit.committer.date !== 'string' || !Number.isFinite(Date.parse(wartosc.commit.committer.date))) return niepoprawna();
+  const dto = wartosc as unknown as CommitDto;
   return { sha: dto.sha, opis: dto.commit.message.slice(0, 2000), czas: dto.commit.committer.date };
 }
-function galezie(w: unknown): { nazwa: string; sha: string }[] {
-  if (!Array.isArray(w) || w.length > 100) return niepoprawna();
-  return w.map((g: unknown) => {
-    if (!rekord(g) || !poprawnaGalaz(g.name) || !rekord(g.commit) || !poprawnySha(g.commit.sha)) return niepoprawna();
-    const dto = g as unknown as GalazDto;
+function galezie(wartosc: unknown): { nazwa: string; sha: string }[] {
+  if (!Array.isArray(wartosc) || wartosc.length > 100) return niepoprawna();
+  return wartosc.map((galaz: unknown) => {
+    if (!rekord(galaz) || !poprawnaGalaz(galaz.name) || !rekord(galaz.commit) || !poprawnySha(galaz.commit.sha)) return niepoprawna();
+    const dto = galaz as unknown as GalazDto;
     return { nazwa: dto.name, sha: dto.commit.sha };
-  }).sort((a, b) => a.nazwa.localeCompare(b.nazwa));
+  }).sort((lewy, prawy) => lewy.nazwa.localeCompare(prawy.nazwa));
 }
 // Instancja obsługuje wyłącznie publiczny, anonimowy zakres. Nie przyjmuje tokenu ani hosta.
-export function utworzCzytnikGitHub(http: KlientHttp = (adres, opcje) => fetch(adres, opcje), timeout = 15000, zegar = Date.now): CzytnikRepozytorium {
+export function utworzCzytnikGitHub(klientHttp: KlientHttp = (adres, opcje) => fetch(adres, opcje), limitCzasu = 15000, zegar = Date.now): CzytnikRepozytorium {
   const pamiec = new Map<string, { etag: string; dane: unknown; nastepna: boolean }>();
   let blokadaDo = 0;
-  async function pobierz<T>(sciezka: string, waliduj: (w: unknown) => T, sygnal?: AbortSignal, tylkoSha = false): Promise<{ dane: T; nastepna: boolean }> {
+  async function pobierz<T>(sciezka: string, waliduj: (wartosc: unknown) => T, sygnal?: AbortSignal, tylkoSha = false): Promise<{ dane: T; nastepna: boolean }> {
     if (zegar() < blokadaDo) throw new BladGitHub('LIMIT', 'Poczekaj na odnowienie limitu GitHub.', new Date(blokadaDo).toISOString());
     const klucz = `public:anonymous:${wersjaApiGitHub}:${sciezka}`;
     const zapis = pamiec.get(klucz);
@@ -41,17 +41,24 @@ export function utworzCzytnikGitHub(http: KlientHttp = (adres, opcje) => fetch(a
     sygnal?.addEventListener('abort', przerwij, { once: true });
     if (sygnal?.aborted) kontroler.abort();
     let przekroczono = false;
-    const licznik = setTimeout(() => { przekroczono = true; kontroler.abort(); }, timeout);
+    const licznik = setTimeout(() => { przekroczono = true; kontroler.abort(); }, limitCzasu);
     try {
-      const odpowiedz = await http(`https://api.github.com${sciezka}`, { method: 'GET', credentials: 'omit', referrerPolicy: 'no-referrer', redirect: 'error', signal: kontroler.signal,
+      const odpowiedz = await klientHttp(`https://api.github.com${sciezka}`, { method: 'GET', credentials: 'omit', referrerPolicy: 'no-referrer', redirect: 'error', signal: kontroler.signal,
         headers: { Accept: tylkoSha ? 'application/vnd.github.sha' : 'application/vnd.github+json', 'X-GitHub-Api-Version': wersjaApiGitHub, ...(zapis ? { 'If-None-Match': zapis.etag } : {}) } });
-      const retry = odpowiedz.headers.get('retry-after');
-      const reset = Number(odpowiedz.headers.get('x-ratelimit-reset')) * 1000;
-      const odczekaj = retry ? (/^\d+$/.test(retry) ? zegar() + Number(retry) * 1000 : Date.parse(retry)) : 0;
+      const ponowienie = odpowiedz.headers.get('retry-after');
+      const odnowienie = Number(odpowiedz.headers.get('x-ratelimit-reset')) * 1000;
+      const odczekaj = ponowienie ? (/^\d+$/.test(ponowienie) ? zegar() + Number(ponowienie) * 1000 : Date.parse(ponowienie)) : 0;
       const limit = odpowiedz.headers.get('x-ratelimit-remaining') === '0';
       if (Number.isFinite(odczekaj) && odczekaj > zegar()) blokadaDo = Math.max(blokadaDo, odczekaj);
-      if (limit) blokadaDo = Math.max(blokadaDo, reset > zegar() ? reset : zegar() + 60000);
-      if (odpowiedz.status === 429 || (odpowiedz.status === 403 && (limit || retry))) {
+      if (limit) blokadaDo = Math.max(blokadaDo, odnowienie > zegar() ? odnowienie : zegar() + 60000);
+      let dodatkowyLimit = false;
+      if (odpowiedz.status === 403 && !limit && !ponowienie) {
+        try {
+          const blad = await odpowiedz.json() as unknown;
+          dodatkowyLimit = rekord(blad) && typeof blad.message === 'string' && /secondary rate limit|abuse detection/i.test(blad.message);
+        } catch { dodatkowyLimit = false; }
+      }
+      if (odpowiedz.status === 429 || (odpowiedz.status === 403 && (limit || ponowienie || dodatkowyLimit))) {
         blokadaDo = Math.max(blokadaDo, zegar() + 60000);
         throw new BladGitHub('LIMIT', 'GitHub ograniczył liczbę zapytań. Spróbuj po wskazanym czasie.', new Date(blokadaDo).toISOString());
       }
@@ -87,10 +94,10 @@ export function utworzCzytnikGitHub(http: KlientHttp = (adres, opcje) => fetch(a
     const tozsamosc = (await pobierz(baza, metadane, sygnal)).dane;
     if (repo.github?.tozsamosc && repo.github.tozsamosc.identyfikator !== tozsamosc.identyfikator) throw new BladGitHub('BLAD', 'Adres wskazuje inną tożsamość GitHub. Zachowano poprzednie powiązanie.');
     const kanoniczna = `/repos/${encodeURIComponent(tozsamosc.wlasciciel)}/${encodeURIComponent(tozsamosc.nazwa)}`;
-    const glowny = (await pobierz(`${kanoniczna}/commits/${encodeURIComponent(tozsamosc.domyslnaGalaz)}`, (w) => { if (!poprawnySha(w)) return niepoprawna(); return w; }, sygnal, true)).dane;
-    const historia = (await pobierz(`${kanoniczna}/commits?sha=${glowny}&per_page=20&page=1`, (w) => {
-      if (!Array.isArray(w) || w.length === 0 || w.length > 20) return niepoprawna();
-      return w.map(commit);
+    const glowny = (await pobierz(`${kanoniczna}/commits/${encodeURIComponent(tozsamosc.domyslnaGalaz)}`, (wartosc) => { if (!poprawnySha(wartosc)) return niepoprawna(); return wartosc; }, sygnal, true)).dane;
+    const historia = (await pobierz(`${kanoniczna}/commits?sha=${glowny}&per_page=20&page=1`, (wartosc) => {
+      if (!Array.isArray(wartosc) || wartosc.length === 0 || wartosc.length > 20) return niepoprawna();
+      return wartosc.map(odczytajCommit);
     }, sygnal)).dane;
     const lista = await pobierz(`${kanoniczna}/branches?per_page=100&page=1`, galezie, sygnal);
     const wynik = { tozsamosc, commity: historia, galezie: lista.dane, ograniczoneGalezie: lista.nastepna };

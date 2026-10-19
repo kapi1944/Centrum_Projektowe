@@ -39,6 +39,10 @@ Przyszłe testy: duplikat odbioru, nowa rewizja źródła, nieznany schemat, bra
 - Osobny pipeline dla każdego API: powiela reguły i rozbieżne stany.
 - Uniwersalny payload bez walidacji: nie daje stabilnego kontraktu.
 
+## Wdrożenie częściowe — Etap 10.1
+
+[Publiczny odczyt GitHub](../v2/GITHUB_INTEGRATION.md) wykorzystuje istniejący SourceLink i węższy port czytnika repozytorium w web. Adapter nie implementuje wysyłki, kopert do pipeline decyzji ani outboxu; ogólny port SDK pozostaje deklaracją docelowego szerszego kontraktu. Wynik odczytu tworzy atomowo istniejący RepositorySnapshot i Evidence, bez zmiany źródeł wiedzy, decyzji i prac. Status poniżej zachowuje historyczne przyjęcie ADR.
+
 ## Status
 
 Przyjęta decyzja projektowa 2.0; SDK i adaptery niewdrożone.

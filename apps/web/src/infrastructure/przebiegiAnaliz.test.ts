@@ -140,13 +140,13 @@ describe('Wersjonowane przebiegi analiz', () => {
     expect(nowa.data.przebiegiAnaliz).toHaveLength(1);
   });
 
-  it('przechodzi round-trip backup v1 → import/migracja → eksport v3 → ponowny import', async () => {
+  it('przechodzi round-trip backup v1 → import/migracja → eksport v5 → ponowny import', async () => {
     const kopia = staraKopia(); expect(() => sprawdzKopie(kopia)).not.toThrow();
     const repozytorium = utworzRepozytoriumIndexedDb(crypto.randomUUID());
     await repozytorium.importujKopie(JSON.parse(JSON.stringify(kopia)), 'zastap', true);
     const nowa = odczytajKopie(JSON.stringify(await repozytorium.eksportujKopie()));
-    expect(nowa.schemaVersion).toBe(4);
-    if (nowa.schemaVersion !== 4) throw new Error('Eksporter musi zapisać format v4.');
+    expect(nowa.schemaVersion).toBe(5);
+    if (nowa.schemaVersion !== 5) throw new Error('Eksporter musi zapisać format v5.');
     expect(nowa.data.przebiegiAnaliz[0].migrationSource?.kind).toBe('BACKUP_V1');
     const { przebiegiAnaliz } = nowa.data;
     const zachowane = Object.fromEntries(Object.entries(nowa.data).filter(([nazwa]) => !['przebiegiAnaliz', 'korekty', 'propozycjeZmian', 'zestawyZmian', 'zdarzeniaDomenowe', 'polaczeniaRepozytoriow', 'migawkiRepozytoriow', 'dowody'].includes(nazwa)));

@@ -143,9 +143,9 @@ describe('Repozytoria, obserwacje i dowody w istniejącej bazie', () => {
     const zRepozytoriami = await przygotuj(); await zRepozytoriami.importujKopie(stara, 'polacz');
     expect((await zRepozytoriami.pobierzRepozytoria()).polaczeniaRepozytoriow).toHaveLength(2);
   });
-  it('eksportuje i odtwarza backup v4 wraz z relacjami, historią i dowodami', async () => {
+  it('importuje backup v4, eksportuje i odtwarza v5 wraz z relacjami, historią i dowodami', async () => {
     const repo = await przygotuj(); const eksport = await repo.eksportujKopie();
-    expect(eksport.schemaVersion).toBe(4); expect(() => sprawdzKopie(JSON.parse(JSON.stringify(eksport)))).not.toThrow();
+    expect(eksport.schemaVersion).toBe(5); expect(() => sprawdzKopie(JSON.parse(JSON.stringify(eksport)))).not.toThrow();
     const nazwa = crypto.randomUUID(); await utworzRepozytoriumIndexedDb(nazwa).importujKopie(eksport, 'zastap', true);
     expect((await utworzRepozytoriumIndexedDb(nazwa).eksportujKopie()).data).toEqual(eksport.data);
   });

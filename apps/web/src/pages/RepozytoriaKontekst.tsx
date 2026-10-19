@@ -1,8 +1,7 @@
-import { useEffect } from 'react';
 import { utworzCzytnikGitHub } from '../infrastructure/githubApi';
 import { utworzSynchronizacjeRepozytorium } from '../application/synchronizujRepozytorium';
 import { statusPolaczenia, statusyGitHub } from '../domain/synchronizacjaGitHub';
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { DaneKopii } from '../domain/kopieZapasowe';
 import { rodzajeRepozytorium, dostawcyRepozytorium, stanyWeryfikacji, zrodlaObserwacji, ostatniaMigawka, typyZrodelDowodu, magazynyZrodel, projektyZrodla, pochodzeniaDowodu, type PolaczenieRepozytorium, type MigawkaRepozytorium, type Dowod, type OperacjaRepozytorium } from '../domain/kontekstRepozytorium';
@@ -25,7 +24,7 @@ export function RepozytoriaKontekst({ dane, wykonaj }: { dane: DaneKopii; wykona
     <Link to={`/projekty/${projekt.id}`}>Wróć do projektu</Link>
     <h1>Repozytoria i generator kontekstu</h1>
     <label>Projekt <select value={projekt.id} onChange={(zdarzenie) => nawiguj(`/projekty/${zdarzenie.target.value}/repozytoria`)}>{dane.projekty.map((projekt) => <option key={projekt.id} value={projekt.id}>{projekt.nazwa}</option>)}</select></label>
-    <p>Dane pozostają lokalne. Ścieżka jest metadanymi; przeglądarka nie odczytuje repozytorium. Nie zapisuj sekretów.</p>
+    <p>Obserwacje są zapisywane lokalnie. GitHub jest odczytywany po kliknięciu przycisku. Lokalna ścieżka pozostaje metadanymi. Nie zapisuj sekretów.</p>
     <section aria-label="Repozytoria projektu"><h2>Repozytoria projektu</h2>
       <button onClick={() => { ustawNowy(true); ustawEdycje(null); }}>Dodaj repozytorium</button>
       {(nowy || edycja) && <FormularzRepozytorium key={edycja?.id ?? 'nowy'} dane={dane} projektId={projekt.id} poczatkowy={edycja} wykonaj={wykonaj} zamknij={() => { ustawNowy(false); ustawEdycje(null); }} />}
@@ -75,14 +74,15 @@ function SynchronizacjaGitHub({ repo, dane, wykonaj }: { repo: PolaczenieRepozyt
     {repo.github?.tozsamosc && <p>Publiczne · {repo.github.tozsamosc.archiwalne ? 'Archiwalne' : 'Aktywne'}</p>}
     <p>{repo.github?.komunikat}</p>
     {repo.github?.ponowPo && <p>Można ponowić po: {formatujDate(repo.github.ponowPo)}</p>}
-    <button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={uruchom}>Sprawdź połączenie</button>
-    <button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={uruchom}>Synchronizuj</button>
+    <div className="akcje-wpisu"><button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={uruchom}>Sprawdź połączenie</button>
+    <button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={uruchom}>Synchronizuj</button></div>
     {zapis.zajety && <button onClick={() => kontroler.current?.abort()}>Anuluj sprawdzanie</button>}
     <p role="status">{zapis.komunikat}</p>
   </section>;
 }
 function OpisObserwacji({ rekord }: { rekord: MigawkaRepozytorium }) {
-  return <><p>Gałąź: {rekord.galaz} · Commit: {rekord.commitSha ? <span title={rekord.commitSha}>{rekord.commitSha.slice(0, 8)}<details><summary>Pełny SHA</summary><code>{rekord.commitSha}</code></details></span> : 'Nieznany'} · {stanyWeryfikacji[rekord.weryfikacja]}</p>
+  return <><p>Gałąź: {rekord.galaz} · Commit: {rekord.commitSha ? <span title={rekord.commitSha}>{rekord.commitSha.slice(0, 8)}</span> : 'Nieznany'} · {stanyWeryfikacji[rekord.weryfikacja]}</p>
+    {rekord.commitSha && <details><summary>Pełny SHA</summary><code className="surowy-wpis">{rekord.commitSha}</code></details>}
     <p>{formatujDate(rekord.zaobserwowano)} · {zrodlaObserwacji[rekord.zrodlo]} · {rekord.opisZrodla}</p><p className="surowy-wpis">{rekord.opis}</p>
     {rekord.github && <><a href={`${rekord.github.tozsamosc.adres}/commit/${rekord.commitSha}`} target="_blank" rel="noreferrer">Commit na GitHub</a><details><summary>Commity ({rekord.github.commity.length}) i gałęzie ({rekord.github.galezie.length})</summary>{rekord.github.commity.map((commit) => <p key={commit.sha}><a title={commit.sha} href={`${rekord.github!.tozsamosc.adres}/commit/${commit.sha}`} target="_blank" rel="noreferrer">{commit.sha.slice(0, 8)}</a> {commit.opis}</p>)}{rekord.github.galezie.map((galaz) => <p key={galaz.nazwa}>{galaz.nazwa} · <span title={galaz.sha}>{galaz.sha.slice(0, 8)}</span></p>)}</details></>}
     {rekord.ostrzezenia.map((tekst, numer) => <p key={numer}>Ostrzeżenie: {tekst}</p>)}</>;
@@ -109,20 +109,20 @@ function FormularzRepozytorium({ dane, projektId, poczatkowy, wykonaj, zamknij }
     const formularz = new FormData(zdarzenie.currentTarget);
     const tekst = (pole: string) => String(formularz.get(pole) ?? '').trim();
     const czas = new Date().toISOString();
-    const rekord: PolaczenieRepozytorium = { ...(poczatkowy?.github ? { github: poczatkowy.github } : {}), id, projektIds: [...wybraneProjekty].sort(), nazwa: tekst('nazwa'), rodzaj: tekst('rodzaj') as PolaczenieRepozytorium['rodzaj'], dostawca: tekst('dostawca') as PolaczenieRepozytorium['dostawca'],
+    const rekord: PolaczenieRepozytorium = { ...(poczatkowy?.github ? { github: poczatkowy.github } : {}), id, projektIds: [...wybraneProjekty].sort(), nazwa: tekst('nazwa'), rodzaj: tekst('rodzaj') as PolaczenieRepozytorium['rodzaj'], dostawca: poczatkowy?.github?.tozsamosc ? 'GITHUB' : tekst('dostawca') as PolaczenieRepozytorium['dostawca'],
       ...(tekst('adres') ? { adresZdalny: tekst('adres') } : {}), ...(tekst('sciezka') ? { sciezkaLokalna: tekst('sciezka') } : {}), ...(tekst('galaz') ? { domyslnaGalaz: tekst('galaz') } : {}),
-      weryfikacja: tekst('weryfikacja') as PolaczenieRepozytorium['weryfikacja'], notatka: tekst('notatka'), utworzono: poczatkowy?.utworzono ?? czas, zaktualizowano: czas, wersja: (poczatkowy?.wersja ?? 0) + 1 };
+      weryfikacja: poczatkowy?.github?.tozsamosc ? poczatkowy.weryfikacja : tekst('weryfikacja') as PolaczenieRepozytorium['weryfikacja'], notatka: tekst('notatka'), utworzono: poczatkowy?.utworzono ?? czas, zaktualizowano: czas, wersja: (poczatkowy?.wersja ?? 0) + 1 };
     void zapis.zapisz(async () => { await wykonaj({ rodzaj: 'zapisz', rekord, oczekiwanaWersja: poczatkowy?.wersja ?? null }); zamknij(); });
   }
   return <form className="formularz-realizacji" onSubmit={wyslij}><fieldset disabled={zapis.zajety}>
     <legend>{poczatkowy ? 'Edytuj repozytorium' : 'Nowe repozytorium'}</legend>
     <label>Nazwa repozytorium <input name="nazwa" required defaultValue={poczatkowy?.nazwa} /></label>
     <label>Rodzaj repozytorium <select name="rodzaj" defaultValue={poczatkowy?.rodzaj}>{Object.entries(rodzajeRepozytorium).map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
-    <label>Dostawca <select name="dostawca" defaultValue={poczatkowy?.dostawca}>{Object.entries(dostawcyRepozytorium).map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
-    <label>Zdalny URL <input name="adres" type="url" defaultValue={poczatkowy?.adresZdalny} /></label>
+    <label>Dostawca <select name="dostawca" disabled={!!poczatkowy?.github?.tozsamosc} defaultValue={poczatkowy?.dostawca}>{Object.entries(dostawcyRepozytorium).map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
+    <label>Zdalny URL <input name="adres" type="url" readOnly={!!poczatkowy?.github?.tozsamosc} defaultValue={poczatkowy?.adresZdalny} /></label>
     <label>Lokalna ścieżka <input name="sciezka" defaultValue={poczatkowy?.sciezkaLokalna} /></label>
-    <label>Domyślna gałąź <input name="galaz" defaultValue={poczatkowy?.domyslnaGalaz} /></label>
-    <label>Weryfikacja metadanych <select name="weryfikacja" defaultValue={poczatkowy?.weryfikacja}>{Object.entries(stanyWeryfikacji).filter(([klucz]) => klucz !== 'GITHUB_API').map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
+    <label>Domyślna gałąź <input name="galaz" readOnly={!!poczatkowy?.github?.tozsamosc} defaultValue={poczatkowy?.domyslnaGalaz} /></label>
+    <label>Weryfikacja metadanych <select name="weryfikacja" disabled={!!poczatkowy?.github?.tozsamosc} defaultValue={poczatkowy?.weryfikacja}>{Object.entries(stanyWeryfikacji).filter(([klucz]) => klucz !== 'GITHUB_API' || poczatkowy?.weryfikacja === 'GITHUB_API').map(([klucz, tekst]) => <option key={klucz} value={klucz}>{tekst}</option>)}</select></label>
     <label>Notatka <textarea name="notatka" defaultValue={poczatkowy?.notatka} /></label>
     <p>Wybierz projekty korzystające z tej samej tożsamości repozytorium:</p>
     {dane.projekty.map((projekt) => <label key={projekt.id}><input type="checkbox" checked={wybraneProjekty.includes(projekt.id)} onChange={(zdarzenie) => ustawProjekty(zdarzenie.target.checked ? [...wybraneProjekty, projekt.id] : wybraneProjekty.filter((id) => id !== projekt.id))} />{projekt.nazwa}</label>)}

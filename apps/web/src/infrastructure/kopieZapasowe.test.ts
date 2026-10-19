@@ -76,7 +76,7 @@ describe('Kopie zapasowe', () => {
   it('odrzuca uszkodzony JSON, obcy format, nieobsługiwaną wersję i niepełną strukturę', async () => {
     const { repozytorium, kopia } = await przygotuj();
     expect(() => odczytajKopie('{')).toThrow('JSON');
-    for (const uszkodzona of [null, [], { ...kopia, format: 'obcy' }, { ...kopia, schemaVersion: 5 }, { ...kopia, exportedAt: 'wczoraj' }, { ...kopia, data: {} }, { ...kopia, data: { ...kopia.data, wpisy: null } }]) {
+    for (const uszkodzona of [null, [], { ...kopia, format: 'obcy' }, { ...kopia, schemaVersion: 999 }, { ...kopia, exportedAt: 'wczoraj' }, { ...kopia, data: {} }, { ...kopia, data: { ...kopia.data, wpisy: null } }]) {
       await expect(repozytorium.importujKopie(uszkodzona, 'zastap', true)).rejects.toBeTruthy();
     }
     expect(odczytajKopie(JSON.stringify(await repozytorium.eksportujKopie())).data).toEqual(kopia.data);

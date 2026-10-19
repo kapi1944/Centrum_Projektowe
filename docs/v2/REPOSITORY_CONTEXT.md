@@ -2,6 +2,10 @@
 
 Warstwa lokalnych metadanych jest dostępna z projektu przez „Repozytoria i generator kontekstu” (`/projekty/:projektId/repozytoria`). Nie odczytuje plików pod podaną ścieżką, nie łączy się z siecią i nie wykonuje zmian kodu ani projektu.
 
+## Aktualizacja — Etap 10.1
+
+[Adapter i synchronizacja GitHub](GITHUB_INTEGRATION.md) rozszerzają opisany poniżej historyczny Etap 9: publiczny odczyt REST na żądanie użytkownika, stabilne ID repozytorium, znormalizowana historia commitów i gałęzi, Evidence/SourceLink, statusy i daty próby/obserwacji. Dodano źródło i weryfikację `GITHUB_API`. IndexedDB nadal v8; backup v5 importuje v1–v4. Ręczne formularze nie nadają weryfikacji API. Poniższy opis braku sieci i granicy Etapu 10 dotyczy punktu odniesienia Etapu 9.
+
 ## Modele i tożsamość
 
 `PolaczenieRepozytorium` odpowiada RepoConnection. Ma trwałe `id`, wiele `projektIds`, nazwę, rodzaj, dostawcę, opcjonalny URL HTTP(S), ścieżkę i domyślną gałąź, stan weryfikacji metadanych, czasy, notatkę i wersję. Jeden projekt może mieć wiele repozytoriów. Wspólny rekord edytuje się przez wybór projektów lub „Powiąż istniejące repozytorium”. Powtórzenie identycznego zapisu jest idempotentne. Ta sama znormalizowana ścieżka lub URL nie może utworzyć drugiej tożsamości. Zmiana metadanych sprawdza oczekiwaną wersję; nie ma rozstrzygania konfliktu zegarem.

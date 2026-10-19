@@ -31,12 +31,50 @@ describe('Repozytoria i generator kontekstu w UI', () => {
     await osoba.type(screen.getByLabelText('Commit SHA (niezweryfikowany)'), 'abcdef1234567');
     await osoba.type(screen.getByLabelText('Opis stanu'), 'Testy wymagają uruchomienia');
     await osoba.click(screen.getByRole('button', { name: 'Zapisz nową obserwację' }));
-    await screen.findAllByText(/Gałąź: main · Commit: abcdef1234567/);
+    await screen.findAllByText(/Gałąź: main · Commit:/);
     expect((await repo.pobierzRepozytoria()).polaczeniaRepozytoriow).toHaveLength(1);
     widok.unmount();
     render(<MemoryRouter initialEntries={['/projekty/p2/repozytoria']}><Aplikacja repozytorium={repo} /></MemoryRouter>);
     await screen.findAllByText('Testy wymagają uruchomienia');
-    expect(screen.getAllByText(/Gałąź: main · Commit: abcdef1234567/)[0]).toHaveTextContent('Niezweryfikowane');
+    expect(screen.getAllByText(/Gałąź: main · Commit:/)[0]).toHaveTextContent('abcdef12 · Niezweryfikowane');
+  });
+  it('sprawdza GitHub świadomą akcją, pokazuje SHA i zachowuje odczyt po utracie sieci oraz po ponownym otwarciu', async () => {
+    const repozytorium = await przygotuj();
+    const osoba = osobaTestowa.setup();
+    const sha = 'a'.repeat(40);
+    const siec = vi.spyOn(globalThis, 'fetch').mockImplementation(async (wejscie) => {
+      const adres = String(wejscie);
+      const dane = adres.includes('/branches?') ? [{ name: 'main', commit: { sha } }]
+        : adres.includes('/commits?') ? [{ sha, commit: { message: 'Rzeczywisty odczyt testowy', committer: { date: czas } } }]
+        : { id: 987, name: 'app', owner: { login: 'przyklad' }, html_url: 'https://github.com/przyklad/app', default_branch: 'main', visibility: 'public', private: false, archived: false };
+      return new Response(adres.includes('/commits/') ? sha : JSON.stringify(dane), { status: 200 });
+    });
+    try {
+      const widok = render(<MemoryRouter initialEntries={['/projekty/p1/repozytoria']}><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);
+      await screen.findByText('Status: Gotowe do sprawdzenia');
+      expect(siec).not.toHaveBeenCalled();
+      await osoba.click(screen.getByRole('button', { name: 'Sprawdź połączenie' }));
+      await screen.findByText('Status: Połączone');
+      expect(siec).toHaveBeenCalledTimes(4);
+      const artykul = screen.getByRole('heading', { name: 'Kod aplikacji' }).closest('article')!;
+      expect(within(artykul).getAllByText('aaaaaaaa')[0]).toHaveAttribute('title', sha);
+      expect(within(artykul).getAllByRole('link', { name: 'Commit na GitHub' })[0]).toHaveAttribute('href', `https://github.com/przyklad/app/commit/${sha}`);
+      await osoba.click(screen.getByRole('button', { name: 'Edytuj metadane: Kod aplikacji' }));
+      await osoba.type(screen.getByLabelText('Notatka'), 'Lokalna notatka');
+      await osoba.click(screen.getByRole('button', { name: 'Zapisz repozytorium' }));
+      await screen.findByText('Lokalna notatka');
+      expect((await repozytorium.pobierzRepozytoria()).polaczeniaRepozytoriow[0].weryfikacja).toBe('GITHUB_API');
+      siec.mockRejectedValue(new TypeError('Offline'));
+      await osoba.click(screen.getByRole('button', { name: 'Synchronizuj' }));
+      await screen.findByText('Status: Offline');
+      const dane = await repozytorium.pobierzRepozytoria();
+      expect(dane.migawkiRepozytoriow).toHaveLength(1);
+      widok.unmount();
+      render(<MemoryRouter initialEntries={['/projekty/p1/repozytoria']}><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);
+      await screen.findByText('Status: Offline');
+      expect(screen.getAllByText('Rzeczywisty odczyt testowy').length).toBeGreaterThan(0);
+      expect((await repozytorium.pobierzRepozytoria()).migawkiRepozytoriow).toEqual(dane.migawkiRepozytoriow);
+    } finally { vi.restoreAllMocks(); }
   });
   it('pokazuje dokładny zakres, kopiuje ten sam Markdown i przygotowuje lokalne pliki bez sieci ani zmian projektu', async () => {
     const repo = await przygotuj(); const osoba = osobaTestowa.setup();

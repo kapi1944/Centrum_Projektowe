@@ -32,29 +32,37 @@ export function rozpoznajAdresGitHub(wartosc: string): { wlasciciel: string; naz
   if (!nazwa || ['.', '..'].includes(nazwa)) throw new BladGitHub('BLAD', 'Niepoprawna nazwa repozytorium.');
   return { wlasciciel: dopasowanie[1]!, nazwa };
 }
-function obiekt(w: unknown): w is Record<string, unknown> { return !!w && typeof w === 'object' && !Array.isArray(w); }
-function pola(w: Record<string, unknown>, lista: string[]) { return Object.keys(w).every((klucz) => lista.includes(klucz)); }
-function czas(w: unknown): w is string { return typeof w === 'string' && Number.isFinite(Date.parse(w)); }
-export function poprawnySha(w: unknown): w is string { return typeof w === 'string' && /^[a-f0-9]{40}$/.test(w); }
-export function poprawnaGalaz(w: unknown): w is string { return typeof w === 'string' && w.length > 0 && w.length <= 255 && !/[\x00-\x20\x7f~^:?*\[\\]/.test(w) && !w.includes('..') && !w.includes('@{') && !w.startsWith('/') && !w.endsWith('/') && !w.endsWith('.lock'); }
-export function sprawdzTozsamoscGitHub(w: unknown): w is TozsamoscGitHub {
-  if (!obiekt(w) || !pola(w, ['identyfikator', 'wlasciciel', 'nazwa', 'adres', 'domyslnaGalaz', 'widocznosc', 'archiwalne']) || !Number.isSafeInteger(w.identyfikator) || Number(w.identyfikator) <= 0
-    || typeof w.adres !== 'string' || w.widocznosc !== 'public' || typeof w.archiwalne !== 'boolean' || !poprawnaGalaz(w.domyslnaGalaz)) return false;
-  try { const adres = rozpoznajAdresGitHub(w.adres); return adres.wlasciciel === w.wlasciciel && adres.nazwa === w.nazwa && w.adres === `https://github.com/${adres.wlasciciel}/${adres.nazwa}`; } catch { return false; }
+function obiekt(wartosc: unknown): wartosc is Record<string, unknown> { return !!wartosc && typeof wartosc === 'object' && !Array.isArray(wartosc); }
+function pola(wartosc: Record<string, unknown>, lista: string[]) { return Object.keys(wartosc).every((klucz) => lista.includes(klucz)); }
+function czas(wartosc: unknown): wartosc is string { return typeof wartosc === 'string' && Number.isFinite(Date.parse(wartosc)); }
+export function poprawnySha(wartosc: unknown): wartosc is string { return typeof wartosc === 'string' && /^[a-f0-9]{40}$/.test(wartosc); }
+export function poprawnaGalaz(wartosc: unknown): wartosc is string {
+  return typeof wartosc === 'string' && wartosc.length > 0 && wartosc.length <= 255
+    && ![...wartosc].some((znak) => znak.charCodeAt(0) <= 32 || znak.charCodeAt(0) === 127 || '~^:?*[\\'.includes(znak))
+    && !wartosc.includes('..') && !wartosc.includes('@{') && !wartosc.includes('//')
+    && !wartosc.startsWith('/') && !wartosc.endsWith('/') && !wartosc.endsWith('.')
+    && !wartosc.split('/').some((czesc) => czesc.startsWith('.') || czesc.endsWith('.lock'));
 }
-export function sprawdzOdczytGitHub(w: unknown): w is OdczytGitHub {
-  return obiekt(w) && pola(w, ['tozsamosc', 'commity', 'galezie', 'ograniczoneGalezie']) && sprawdzTozsamoscGitHub(w.tozsamosc)
-    && Array.isArray(w.commity) && w.commity.length > 0 && w.commity.length <= 20 && w.commity.every((c: unknown) => obiekt(c) && pola(c, ['sha', 'opis', 'czas']) && poprawnySha(c.sha) && typeof c.opis === 'string' && c.opis.length <= 2000 && czas(c.czas))
-    && new Set(w.commity.map((c: CommitRepozytorium) => c.sha)).size === w.commity.length
-    && Array.isArray(w.galezie) && w.galezie.length <= 100 && w.galezie.every((g: unknown) => obiekt(g) && pola(g, ['nazwa', 'sha']) && poprawnaGalaz(g.nazwa) && poprawnySha(g.sha))
-    && new Set(w.galezie.map((g: { nazwa: string }) => g.nazwa)).size === w.galezie.length && typeof w.ograniczoneGalezie === 'boolean';
+export function sprawdzTozsamoscGitHub(wartosc: unknown): wartosc is TozsamoscGitHub {
+  if (!obiekt(wartosc) || !pola(wartosc, ['identyfikator', 'wlasciciel', 'nazwa', 'adres', 'domyslnaGalaz', 'widocznosc', 'archiwalne']) || !Number.isSafeInteger(wartosc.identyfikator) || Number(wartosc.identyfikator) <= 0
+    || typeof wartosc.adres !== 'string' || wartosc.widocznosc !== 'public' || typeof wartosc.archiwalne !== 'boolean' || !poprawnaGalaz(wartosc.domyslnaGalaz)) return false;
+  try { const adres = rozpoznajAdresGitHub(wartosc.adres); return adres.wlasciciel === wartosc.wlasciciel && adres.nazwa === wartosc.nazwa && wartosc.adres === `https://github.com/${adres.wlasciciel}/${adres.nazwa}`; } catch { return false; }
 }
-export function sprawdzStanGitHub(w: unknown): w is StanGitHub {
-  return obiekt(w) && pola(w, ['tozsamosc', 'status', 'ostatniaProba', 'ostatniaObserwacja', 'komunikat', 'ponowPo'])
-    && typeof w.status === 'string' && Object.hasOwn(statusyGitHub, w.status) && w.status !== 'SPRAWDZANIE'
-    && czas(w.ostatniaProba) && (w.ostatniaObserwacja === undefined || (czas(w.ostatniaObserwacja) && w.ostatniaObserwacja <= String(w.ostatniaProba)))
-    && typeof w.komunikat === 'string' && (w.ponowPo === undefined || czas(w.ponowPo)) && (w.tozsamosc === undefined || sprawdzTozsamoscGitHub(w.tozsamosc))
-    && (w.status !== 'POLACZONE' || (!!w.tozsamosc && !!w.ostatniaObserwacja));
+export function sprawdzOdczytGitHub(wartosc: unknown): wartosc is OdczytGitHub {
+  return obiekt(wartosc) && pola(wartosc, ['tozsamosc', 'commity', 'galezie', 'ograniczoneGalezie']) && sprawdzTozsamoscGitHub(wartosc.tozsamosc)
+    && Array.isArray(wartosc.commity) && wartosc.commity.length > 0 && wartosc.commity.length <= 20 && wartosc.commity.every((zmiana: unknown) => obiekt(zmiana) && pola(zmiana, ['sha', 'opis', 'czas']) && poprawnySha(zmiana.sha) && typeof zmiana.opis === 'string' && zmiana.opis.length <= 2000 && czas(zmiana.czas))
+    && new Set(wartosc.commity.map((zmiana: CommitRepozytorium) => zmiana.sha)).size === wartosc.commity.length
+    && Array.isArray(wartosc.galezie) && wartosc.galezie.length <= 100 && wartosc.galezie.every((galaz: unknown) => obiekt(galaz) && pola(galaz, ['nazwa', 'sha']) && poprawnaGalaz(galaz.nazwa) && poprawnySha(galaz.sha))
+    && new Set(wartosc.galezie.map((galaz: { nazwa: string }) => galaz.nazwa)).size === wartosc.galezie.length && typeof wartosc.ograniczoneGalezie === 'boolean'
+    && (wartosc.ograniczoneGalezie || wartosc.galezie.some((galaz: { nazwa: string; sha: string }) => galaz.nazwa === (wartosc.tozsamosc as TozsamoscGitHub).domyslnaGalaz))
+    && wartosc.galezie.every((galaz: { nazwa: string; sha: string }) => galaz.nazwa !== (wartosc.tozsamosc as TozsamoscGitHub).domyslnaGalaz || galaz.sha === (wartosc.commity as CommitRepozytorium[])[0]!.sha);
+}
+export function sprawdzStanGitHub(wartosc: unknown): wartosc is StanGitHub {
+  return obiekt(wartosc) && pola(wartosc, ['tozsamosc', 'status', 'ostatniaProba', 'ostatniaObserwacja', 'komunikat', 'ponowPo'])
+    && typeof wartosc.status === 'string' && Object.hasOwn(statusyGitHub, wartosc.status) && wartosc.status !== 'SPRAWDZANIE'
+    && czas(wartosc.ostatniaProba) && (wartosc.ostatniaObserwacja === undefined || (czas(wartosc.ostatniaObserwacja) && Date.parse(wartosc.ostatniaObserwacja) <= Date.parse(wartosc.ostatniaProba)))
+    && typeof wartosc.komunikat === 'string' && (wartosc.ponowPo === undefined || czas(wartosc.ponowPo)) && (wartosc.tozsamosc === undefined || sprawdzTozsamoscGitHub(wartosc.tozsamosc))
+    && (wartosc.status !== 'POLACZONE' || (!!wartosc.tozsamosc && !!wartosc.ostatniaObserwacja));
 }
 export function statusPolaczenia(repo: PolaczenieRepozytorium, teraz: number): StatusGitHub {
   if (!repo.adresZdalny || repo.dostawca !== 'GITHUB') return 'NIEPOLACZONE';

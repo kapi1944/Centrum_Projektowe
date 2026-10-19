@@ -41,6 +41,6 @@ export function Aplikacja({ repozytorium }: { repozytorium: RepozytoriumProjekto
         <Route path="*" element={<><h1>Nie znaleziono strony</h1><NavLink to="/">Wróć na start</NavLink></>} />
       </Routes>}
     </main>
-    <footer>Dane są przechowywane w tej przeglądarce. Usunięcie danych witryny usuwa także zapisane projekty, wpisy i historię. Możesz wykonać kopię zapasową na ekranie „Dane i kopie zapasowe”. Synchronizacja nie jest dostępna.</footer>
+    <footer>Dane są przechowywane w tej przeglądarce. Usunięcie danych witryny usuwa także zapisane projekty, wpisy i historię. Możesz wykonać kopię zapasową na ekranie „Dane i kopie zapasowe”. Odczyt publicznego GitHub jest dostępny w repozytoriach projektu.</footer>
   </>;
 }

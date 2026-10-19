@@ -312,7 +312,7 @@ describe('Korekty, review i atomowy zestaw zmian', () => {
     const kopia: KopiaZapasowaV1 | KopiaZapasowaV2 = wersja === 1 ? stara : { ...stara, schemaVersion: 2, data: { ...stara.data, przebiegiAnaliz: [] } };
     const { repozytorium } = await przygotuj(kopia); const id = await utworz(repozytorium);
     await reviewuj(repozytorium, id); await zastosuj(repozytorium, id);
-    const nowa = await repozytorium.eksportujKopie(); expect(nowa.schemaVersion).toBe(4);
+    const nowa = await repozytorium.eksportujKopie(); expect(nowa.schemaVersion).toBe(5);
     const { repozytorium: odtworzone } = await przygotuj(JSON.parse(JSON.stringify(nowa)));
     expect((await odtworzone.eksportujKopie()).data).toEqual(JSON.parse(JSON.stringify(nowa.data)));
   });
