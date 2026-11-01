@@ -1,6 +1,6 @@
 # Centrum Projektowe 2.0
 
-Prywatna pamięć projektowa: projekty, oryginalne wpisy, ustalenia i realizacja. Interfejs **Glassplate Solid** używa pełnych, grafitowych powierzchni, chłodnego niebieskiego akcentu i responsywnej powłoki. Stan na 2026-11-01: R0 FINAL + R1.
+Prywatna pamięć projektowa: projekty, oryginalne wpisy, ustalenia i realizacja. Interfejs **Glassplate Solid** używa pełnych, grafitowych powierzchni, chłodnego niebieskiego akcentu i responsywnej powłoki. Stan na 2026-11-01: R2 — interaktywny pulpit projektów.
 
 ## Uruchomienie
 
@@ -15,7 +15,7 @@ Zachowaj dotychczasowy protokół, host i port aplikacji. Inny origin oznacza os
 
 ## Bieżący zakres
 
-- Start z metrykami wyliczanymi z zapisanych danych, filtrem projektów, punktem powrotu i ostatnim wpisem.
+- Start z metrykami aktywnych projektów, otwartych zadań, blokad i uwag; kontynuacją pracy, priorytetowymi uwagami, sortowaniem projektów, osią czasu i szybkimi działaniami.
 - Projekty: tworzenie, edycja, archiwizacja, historia, obszary, etapy, elementy pracy, pytania i blokady.
 - Skrzynka: zachowany oryginał, analizy regułowe, weryfikacja, przebiegi i osobno zatwierdzane zastosowanie. Analiza nie jest decyzją ani obiektywną prawdą.
 - Ustalenia i analiza wpływu; korekty, propozycje zmian i rewizje planu wymagające zatwierdzenia.
@@ -46,6 +46,7 @@ Build web zawiera również kontrolę TypeScript. `npm run dev:hub` uruchamia Hu
 
 ## Dokumentacja
 
+- [R2: pulpit, zakres metryk i weryfikacja](docs/v2/R2_DASHBOARD.md)
 - [R0 FINAL + R1: zakres, zależności i weryfikacja](docs/v2/R0_FINAL_R1.md)
 - [Glassplate Solid: tokeny i komponenty](docs/ui/README.md)
 - [Zgodność danych i historia migracji](docs/v2/COMPATIBILITY.md)

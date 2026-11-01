@@ -15,7 +15,7 @@
   --promien: 12px;
 }
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; }
+body { margin: 0; min-width: 0; }
 a { color: var(--akcent); text-underline-offset: .22em; text-decoration-thickness: 1px; }
 a:hover { color: #c0d8ff; }
 button, a, input, select, textarea, summary { -webkit-tap-highlight-color: #34404f; }
@@ -167,4 +167,36 @@ div.formularz-realizacji { display: grid; grid-template-columns: auto minmax(0, 
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+.pulpit .metryki-pulpitu { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pulpit .opis-zakresu { color: var(--tekst-drugorzedny); font-size: .8rem; }
+.pulpit .kolumny-pulpitu { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.pulpit .kolumny-pulpitu > .panel { margin: 0; }
+.pulpit .wybor-repozytorium, .pulpit .filtry-pulpitu { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.pulpit .wybor-repozytorium { padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--obramowanie); }
+.pulpit .wybor-repozytorium select { flex: 1 1 160px; max-width: 360px; }
+.pulpit .powrot-pulpitu { padding: 4px 0 4px 20px; margin-top: 20px; }
+.pulpit dl { margin: 16px 0; }
+.pulpit dt { color: var(--tekst-drugorzedny); font-size: .8rem; margin-top: 12px; }
+.pulpit dd { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.pulpit .grupa-powrotu { border-top: 1px solid var(--obramowanie); padding-top: 12px; margin-top: 20px; }
+.pulpit .grupa-powrotu h4 { margin: 0; }
+.pulpit .grupa-powrotu ul { padding-left: 20px; }
+.pulpit .grupa-powrotu li { margin-top: 8px; }
+.pulpit .os-czasu { list-style: none; padding: 0 0 0 20px; margin-top: 24px; border-left: 2px solid var(--obramowanie); }
+.pulpit .os-czasu > li { position: relative; padding: 0 0 24px 12px; margin-bottom: 24px; border-bottom: 1px solid var(--obramowanie); }
+.pulpit .os-czasu > li::before { content: ''; position: absolute; left: -26px; top: 7px; width: 10px; height: 10px; border-radius: 50%; background: var(--akcent); }
+.pulpit .os-czasu time { color: var(--tekst-drugorzedny); font-size: .78rem; }
+.pulpit .os-czasu h3 { margin: 8px 0; }
+.pulpit .os-czasu > li:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+@media (max-width: 1100px) {
+  .pulpit .metryki-pulpitu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pulpit .kolumny-pulpitu { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .pulpit .metryki-pulpitu { grid-template-columns: minmax(0, 1fr); }
+  .pulpit .filtry-pulpitu { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .pulpit .wybor-repozytorium { align-items: stretch; flex-direction: column; }
+  .pulpit .wybor-repozytorium select { flex: auto; max-width: 100%; }
 }

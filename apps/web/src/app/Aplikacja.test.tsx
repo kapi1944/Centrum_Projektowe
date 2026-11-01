@@ -7,6 +7,16 @@ import { utworzRepozytoriumIndexedDb } from '../infrastructure/repozytoriumIndex
 import { Aplikacja } from './Aplikacja';
 
 describe('Shell aplikacji', () => {
+  it('kieruje szybkie działania pulpitu do formularzy i przenosi fokus do wskazanego pola', async () => {
+    const osoba = uzytkownik.setup();
+    render(<MemoryRouter><Aplikacja repozytorium={utworzRepozytoriumIndexedDb(crypto.randomUUID())} /></MemoryRouter>);
+    await osoba.click(await screen.findByRole('link', { name: 'Nowy projekt' }));
+    expect(await screen.findByLabelText('Nazwa projektu')).toHaveFocus();
+    await osoba.click(within(screen.getByRole('navigation', { name: 'Główna nawigacja' })).getByRole('link', { name: 'Start' }));
+    await osoba.click(screen.getByRole('link', { name: 'Nowy wpis' }));
+    expect(await screen.findByLabelText('Co chcesz zapisać?')).toHaveFocus();
+  });
+
   it('tworzy projekt, zapisuje przypisany oryginał i odczytuje go po ponownym montowaniu', async () => {
     const nazwaBazy = crypto.randomUUID();
     const osoba = uzytkownik.setup();

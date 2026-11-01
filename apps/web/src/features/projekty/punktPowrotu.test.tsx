@@ -29,8 +29,8 @@ describe('Punkt powrotu i dashboard', () => {
     expect(await repozytorium.pobierzZdarzenia()).toEqual(expect.arrayContaining([expect.objectContaining({ typZdarzenia: 'PROJECT_RESUME_UPDATED' })]));
     widok.unmount();
     render(<MemoryRouter><Aplikacja repozytorium={utworzRepozytoriumIndexedDb(nazwaBazy)} /></MemoryRouter>);
-    expect(await screen.findByText('Dane działają')).toBeInTheDocument();
-    expect(screen.getByText('Dopracować Inbox')).toBeInTheDocument();
+    expect(await within(await screen.findByRole('region', { name: 'Kontynuuj pracę' })).findByText('Dane działają')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Kontynuuj pracę' })).getByText('Dopracować Inbox')).toBeInTheDocument();
   });
 
   it('filtruje według statusu, skraca kontekst i pokazuje archiwum tylko w filtrze Wszystkie', async () => {
@@ -42,18 +42,18 @@ describe('Punkt powrotu i dashboard', () => {
       { ...bazowy, id: 'p3', nazwa: 'Pauza', status: 'PAUSED' },
       { ...bazowy, id: 'p4', nazwa: 'Archiwum', status: 'ACTIVE', zarchiwizowano: bazowy.utworzono },
     ] as const;
-    render(<MemoryRouter><Start projekty={[...projekty]} wpisy={[]} /></MemoryRouter>);
+    render(<MemoryRouter><Start projekty={[...projekty]} wpisy={[]} obrazyProjektow={[]} zdarzenia={[]} /></MemoryRouter>);
     const filtr = screen.getByLabelText('Filtr projektów');
     expect(screen.getByText(`${'s'.repeat(160)}…`)).toBeInTheDocument();
     expect(screen.getByText(`${'k'.repeat(160)}…`)).toBeInTheDocument();
     for (const [status, nazwa] of [['ACTIVE', 'Aktywny'], ['IDEA', 'Pomysł'], ['PAUSED', 'Pauza']]) {
       await uzytkownik.selectOptions(filtr, status);
       const karty = screen.getByRole('region', { name: 'Twoje projekty' });
-      expect(within(karty).getAllByRole('link')).toHaveLength(1);
+      expect(within(karty).getAllByRole('heading', { level: 3 })).toHaveLength(1);
       expect(within(karty).getByRole('link', { name: nazwa })).toBeInTheDocument();
     }
     await uzytkownik.selectOptions(filtr, 'wszystkie');
-    expect(within(screen.getByRole('region', { name: 'Twoje projekty' })).getAllByRole('link')).toHaveLength(4);
+    expect(within(screen.getByRole('region', { name: 'Twoje projekty' })).getAllByRole('heading', { level: 3 })).toHaveLength(4);
     expect(screen.getByRole('link', { name: 'Archiwum' })).toBeInTheDocument();
   });
 });
