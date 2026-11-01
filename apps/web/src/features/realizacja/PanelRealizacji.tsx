@@ -79,7 +79,7 @@ export function PanelRealizacji({ projekt, realizacja, decyzje, wykonaj }: {
     const etapyObszaru = etapy.filter((etap) => etap.obszarId === obszarId);
     return <>
       {prace.filter((praca) => praca.obszarId === obszarId && !praca.etapId).map(kartaPracy)}
-      {etapyObszaru.map((etap) => <section key={etap.id} aria-label={`Etap: ${etap.nazwa}`}>
+      {etapyObszaru.map((etap) => <section key={etap.id} id={`etap-${etap.id}`} aria-label={`Etap: ${etap.nazwa}`}>
         <h4>{etap.kolejnosc}. {etap.nazwa}</h4><p>{statusyEtapu[etap.status]}</p><p className="surowy-wpis">{etap.opis}</p>
         {!projekt.zarchiwizowano && <button disabled={zapisywanie} onClick={() => ustawEdycje({ rodzaj: 'etap', id: etap.id, wersja: etap.wersja, dane: etap })}>Edytuj etap</button>}
         {prace.filter((praca) => praca.etapId === etap.id).map(kartaPracy)}

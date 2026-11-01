@@ -1,6 +1,6 @@
 # Centrum Projektowe 2.0
 
-Prywatna pamięć projektowa: projekty, oryginalne wpisy, ustalenia i realizacja. Interfejs **Glassplate Solid** używa pełnych, grafitowych powierzchni, chłodnego niebieskiego akcentu i responsywnej powłoki. Stan na 2026-11-01: R2 — interaktywny pulpit projektów.
+Prywatna pamięć projektowa: projekty, oryginalne wpisy, ustalenia i realizacja. Interfejs **Glassplate Solid** używa pełnych, grafitowych powierzchni, chłodnego niebieskiego akcentu i responsywnej powłoki. Stan na 2026-11-01: R3 — GitHub Intelligence 2.0, historia i porównania zmian, PR, Actions oraz ręczne powiązania i propozycje uzgodnienia postępu.
 
 ## Uruchomienie
 
@@ -47,6 +47,7 @@ Build web zawiera również kontrolę TypeScript. `npm run dev:hub` uruchamia Hu
 ## Dokumentacja
 
 - [R2: pulpit, zakres metryk i weryfikacja](docs/v2/R2_DASHBOARD.md)
+- [R3: GitHub Intelligence, kontrakty, API i weryfikacja](docs/v2/R3_GITHUB_INTELLIGENCE.md)
 - [R0 FINAL + R1: zakres, zależności i weryfikacja](docs/v2/R0_FINAL_R1.md)
 - [Glassplate Solid: tokeny i komponenty](docs/ui/README.md)
 - [Zgodność danych i historia migracji](docs/v2/COMPATIBILITY.md)

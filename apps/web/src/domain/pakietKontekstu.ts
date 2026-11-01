@@ -38,6 +38,7 @@ export function adresZrodla(dane: DaneKopii, typ: Dowod['typZrodla'], id: string
   const projekt = `/projekty/${encodeURIComponent(projektId)}`;
   if (typ === 'SOURCE_RECORD' || typ === 'ANALYSIS_RUN') return '/inbox';
   if (typ === 'DECISION') return `${projekt}/ustalenia?decyzja=${encodeURIComponent(id)}`;
+  if (typ === 'STAGE') return `${projekt}#etap-${encodeURIComponent(id)}`;
   if (['CORRECTION', 'CHANGE_SET', 'DOMAIN_EVENT'].includes(typ)) {
     const korektaId = typ === 'CORRECTION' ? id : typ === 'CHANGE_SET' ? dane.zestawyZmian.find((rekord) => rekord.id === id)?.correctionId : dane.zdarzeniaDomenowe.find((rekord) => rekord.id === id)?.payload.correctionId;
     const wlasciciel = dane.korekty.find((rekord) => rekord.id === korektaId)?.projektId ?? projektId;

@@ -7,8 +7,8 @@ export const dostawcyRepozytorium = { GITHUB: 'GitHub', GITLAB: 'GitLab', LOKALN
 export const stanyWeryfikacji = { GITHUB_API: 'Potwierdzone odczytem GitHub API', NIEZWERYFIKOWANE: 'Niezweryfikowane', POTWIERDZONE_LOKALNIE: 'Potwierdzone lokalnie przez użytkownika' } as const;
 export const zrodlaObserwacji = { GITHUB_API: 'GitHub REST API', RECZNE: 'Wpis ręczny', RAPORT: 'Import pliku / raportu' } as const;
 export const pochodzeniaDowodu = { GITHUB_API: 'GitHub REST API', UZYTKOWNIK: 'Deklaracja użytkownika', NARZEDZIE: 'Deklaracja narzędzia', TEST: 'Wynik testu', ODCZYT_REPOZYTORIUM: 'Odczyt repozytorium' } as const;
-export const magazynyZrodel = { SOURCE_RECORD: 'wpisy', ANALYSIS_RUN: 'przebiegiAnaliz', CORRECTION: 'korekty', CHANGE_SET: 'zestawyZmian', DOMAIN_EVENT: 'zdarzeniaDomenowe', DECISION: 'decyzje', WORK_ITEM: 'elementyPracy', QUESTION: 'pytania', BLOCKER: 'blokady', REPOSITORY: 'polaczeniaRepozytoriow', REPOSITORY_SNAPSHOT: 'migawkiRepozytoriow' } as const;
-export const typyZrodelDowodu = { SOURCE_RECORD: 'Oryginalny wpis', ANALYSIS_RUN: 'Przebieg analizy', CORRECTION: 'Korekta', CHANGE_SET: 'Zestaw zmian', DOMAIN_EVENT: 'Zdarzenie domenowe', DECISION: 'Decyzja', WORK_ITEM: 'Element pracy', QUESTION: 'Pytanie', BLOCKER: 'Bloker', REPOSITORY: 'Repozytorium', REPOSITORY_SNAPSHOT: 'Obserwacja repozytorium' } as const;
+export const magazynyZrodel = { SOURCE_RECORD: 'wpisy', ANALYSIS_RUN: 'przebiegiAnaliz', CORRECTION: 'korekty', CHANGE_SET: 'zestawyZmian', DOMAIN_EVENT: 'zdarzeniaDomenowe', DECISION: 'decyzje', STAGE: 'etapy', WORK_ITEM: 'elementyPracy', QUESTION: 'pytania', BLOCKER: 'blokady', REPOSITORY: 'polaczeniaRepozytoriow', REPOSITORY_SNAPSHOT: 'migawkiRepozytoriow' } as const;
+export const typyZrodelDowodu = { SOURCE_RECORD: 'Oryginalny wpis', ANALYSIS_RUN: 'Przebieg analizy', CORRECTION: 'Korekta', CHANGE_SET: 'Zestaw zmian', DOMAIN_EVENT: 'Zdarzenie domenowe', DECISION: 'Decyzja', STAGE: 'Etap', WORK_ITEM: 'Element pracy', QUESTION: 'Pytanie', BLOCKER: 'Bloker', REPOSITORY: 'Repozytorium', REPOSITORY_SNAPSHOT: 'Obserwacja repozytorium' } as const;
 
 export interface PolaczenieRepozytorium {
   github?: StanGitHub;
@@ -23,6 +23,7 @@ export interface MigawkaRepozytorium {
   weryfikacja: keyof typeof stanyWeryfikacji;
 }
 export interface Dowod {
+  rola?: 'ZMIANA' | 'WDROZENIE' | 'PRZEGLAD';
   id: string; projektIds: string[]; typZrodla: keyof typeof magazynyZrodel; zrodloId: string;
   pochodzenie: keyof typeof pochodzeniaDowodu; opis: string; weryfikacja: keyof typeof stanyWeryfikacji;
   rewizja?: string; zaobserwowano: string; polaczenieZrodla?: PolaczenieZrodla;
@@ -85,7 +86,8 @@ export function sprawdzMigawkeRepozytorium(wartosc: unknown): boolean {
     && (wartosc.zrodlo !== 'RECZNE' || wartosc.weryfikacja === 'NIEZWERYFIKOWANE');
 }
 export function sprawdzDowod(wartosc: unknown): boolean {
-  if (!rekord(wartosc) || !pola(wartosc, ['id', 'projektIds', 'typZrodla', 'zrodloId', 'pochodzenie', 'opis', 'weryfikacja', 'rewizja', 'zaobserwowano', 'polaczenieZrodla'])
+  if (!rekord(wartosc) || !pola(wartosc, ['id', 'projektIds', 'typZrodla', 'zrodloId', 'pochodzenie', 'opis', 'weryfikacja', 'rewizja', 'zaobserwowano', 'polaczenieZrodla', 'rola'])
+    || (wartosc.rola !== undefined && !['ZMIANA', 'WDROZENIE', 'PRZEGLAD'].includes(String(wartosc.rola)))
     || !id(wartosc.id) || !listaId(wartosc.projektIds) || !wartosc.projektIds.length || !id(wartosc.zrodloId)
     || !tekst(wartosc.typZrodla) || !Object.hasOwn(magazynyZrodel, wartosc.typZrodla)
     || !tekst(wartosc.pochodzenie) || !Object.hasOwn(pochodzeniaDowodu, wartosc.pochodzenie)
@@ -125,6 +127,19 @@ export function sprawdzRelacjeRepozytoriow(dane: DaneKopii): void {
     const link = dowod.polaczenieZrodla;
     if (link && (!dane.polaczeniaRepozytoriow.some((repo) => repo.id === link.connectionId && repo.dostawca === link.providerId && dowod.projektIds.every((id) => repo.projektIds.includes(id)))
       || (link.sourceId && !dane.wpisy.some((wpis) => wpis.id === link.sourceId && dowod.projektIds.includes(wpis.projektId ?? ''))))) throw new Error('Niepoprawne powiązanie SourceLink.');
+    if (link?.providerId === 'GITHUB' && ['commit', 'pull_request'].includes(link.resourceType)) {
+      const zgodnaObserwacja = dane.migawkiRepozytoriow.some((migawka) => {
+        if (migawka.repoConnectionId !== link.connectionId || migawka.zrodlo !== 'GITHUB_API' || !migawka.github) return false;
+        return link.resourceType === 'commit'
+          ? migawka.github.commity.some((commit) => commit.sha === link.externalId && commit.sha === link.externalRevision) && link.url === `${migawka.github.tozsamosc.adres}/commit/${link.externalId}`
+          : migawka.github.inteligencja?.pullRequesty?.rekordy.some((pr) => String(pr.numer) === link.externalId && pr.sha === link.externalRevision) && link.url === `${migawka.github.tozsamosc.adres}/pull/${link.externalId}`;
+      });
+      if (!zgodnaObserwacja || dowod.pochodzenie !== 'UZYTKOWNIK' || dowod.weryfikacja !== 'NIEZWERYFIKOWANE' || !dowod.rewizja || !dowod.rola || !dowod.opis.trim()
+        || !['WORK_ITEM', 'STAGE', 'DECISION', 'REPOSITORY'].includes(dowod.typZrodla)
+        || (link.resourceType === 'pull_request' && (dowod.typZrodla !== 'WORK_ITEM' || dowod.rola !== 'ZMIANA'))
+        || ((dowod.typZrodla === 'REPOSITORY') !== (dowod.rola === 'PRZEGLAD'))
+        || (dowod.rola === 'PRZEGLAD' && (dowod.zrodloId !== link.connectionId || dowod.rewizja !== link.externalRevision))) throw new Error('Powiązanie GitHub wymaga zgodnej zapisanej obserwacji i ręcznego potwierdzenia.');
+    }
   }
   for (const migawka of dane.migawkiRepozytoriow) {
     const repo = dane.polaczeniaRepozytoriow.find((repo) => repo.id === migawka.repoConnectionId);

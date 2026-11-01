@@ -1,4 +1,5 @@
-import { BladGitHub, poprawnaGalaz, poprawnySha, rozpoznajAdresGitHub, sprawdzOdczytGitHub, sprawdzTozsamoscGitHub, type CzytnikRepozytorium, type TozsamoscGitHub, type CommitRepozytorium } from '../domain/synchronizacjaGitHub';
+import { BladGitHub, poprawnaGalaz, poprawnySha, rozpoznajAdresGitHub, sprawdzOdczytGitHub, sprawdzTozsamoscGitHub, sprawdzInteligencjeGitHub, licznikGitHub, type CzytnikRepozytorium, type TozsamoscGitHub, type CommitRepozytorium, type InteligencjaGitHub, type PlikZmiany, type UruchomienieWorkflow } from '../domain/synchronizacjaGitHub';
+import { sprawdzBrakSekretow } from '../domain/kontekstRepozytorium';
 
 export const wersjaApiGitHub = '2026-03-10';
 type KlientHttp = (adres: string, opcje: RequestInit) => Promise<Response>;
@@ -27,6 +28,31 @@ function galezie(wartosc: unknown): { nazwa: string; sha: string }[] {
     const dto = galaz as unknown as GalazDto;
     return { nazwa: dto.name, sha: dto.commit.sha };
   }).sort((lewy, prawy) => lewy.nazwa.localeCompare(prawy.nazwa));
+}
+function pliki(wartosc: unknown): PlikZmiany[] {
+  if (!Array.isArray(wartosc) || wartosc.length > 300) return niepoprawna();
+  return wartosc.map((plik: unknown) => {
+    if (!rekord(plik)) return niepoprawna();
+    return { nazwa: plik.filename, status: plik.status, dodano: plik.additions, usunieto: plik.deletions,
+      ...(plik.previous_filename === undefined ? {} : { poprzedniaNazwa: plik.previous_filename }) } as PlikZmiany;
+  });
+}
+function inteligencja(wartosc: InteligencjaGitHub): InteligencjaGitHub {
+  if (!sprawdzInteligencjeGitHub(wartosc)) return niepoprawna();
+  return wartosc;
+}
+function uruchomienia(wartosc: unknown): UruchomienieWorkflow[] {
+  if (!rekord(wartosc) || !licznikGitHub(wartosc.total_count) || !Array.isArray(wartosc.workflow_runs) || wartosc.workflow_runs.length > 20 || wartosc.total_count < wartosc.workflow_runs.length) return niepoprawna();
+  return wartosc.workflow_runs.map((przebieg: unknown) => {
+    if (!rekord(przebieg) || typeof przebieg.status !== 'string' || (przebieg.conclusion !== null && typeof przebieg.conclusion !== 'string')
+      || typeof przebieg.created_at !== 'string' || (przebieg.run_started_at !== null && typeof przebieg.run_started_at !== 'string') || typeof przebieg.updated_at !== 'string') return niepoprawna();
+    const rozpoczeto = przebieg.run_started_at ?? przebieg.created_at;
+    const status = przebieg.status === 'completed'
+      ? przebieg.conclusion === 'success' ? 'SUKCES' : ['failure', 'timed_out', 'startup_failure', 'action_required'].includes(String(przebieg.conclusion)) ? 'BLAD' : 'NIEZNANY'
+      : ['queued', 'in_progress', 'waiting', 'requested', 'pending'].includes(przebieg.status) ? 'W_TOKU' : 'NIEZNANY';
+    return { id: przebieg.id, workflowId: przebieg.workflow_id, nazwa: przebieg.name, sha: przebieg.head_sha, status, wynik: przebieg.conclusion, rozpoczeto, zaktualizowano: przebieg.updated_at,
+      czasSekundy: przebieg.status === 'completed' && przebieg.run_started_at !== null ? Math.floor((Date.parse(przebieg.updated_at) - Date.parse(rozpoczeto)) / 1000) : null } as UruchomienieWorkflow;
+  }).sort((lewy, prawy) => Date.parse(prawy.rozpoczeto) - Date.parse(lewy.rozpoczeto) || prawy.id - lewy.id);
 }
 // Instancja obsługuje wyłącznie publiczny, anonimowy zakres. Nie przyjmuje tokenu ani hosta.
 export function utworzCzytnikGitHub(klientHttp: KlientHttp = (adres, opcje) => fetch(adres, opcje), limitCzasu = 15000, zegar = Date.now): CzytnikRepozytorium {
@@ -71,6 +97,7 @@ export function utworzCzytnikGitHub(klientHttp: KlientHttp = (adres, opcje) => f
       }
       if (odpowiedz.status !== 200) throw new BladGitHub('BLAD', odpowiedz.status >= 500 ? 'GitHub jest chwilowo niedostępny.' : 'Nieobsługiwana odpowiedź GitHub.');
       const dane = waliduj(tylkoSha ? (await odpowiedz.text()).trim() : await odpowiedz.json());
+      try { sprawdzBrakSekretow(dane); } catch { throw new BladGitHub('BLAD', 'Odpowiedź zawiera możliwy sekret. Nie zapisano danych ani cache.'); }
       const nastepna = /rel="next"/.test(odpowiedz.headers.get('link') ?? '');
       const etag = odpowiedz.headers.get('etag');
       if (etag) {
@@ -86,7 +113,52 @@ export function utworzCzytnikGitHub(klientHttp: KlientHttp = (adres, opcje) => f
       throw new BladGitHub('OFFLINE', 'Nie udało się połączyć z GitHub. Sprawdź połączenie z Internetem; ostatnie dane pozostają dostępne.');
     } finally { clearTimeout(licznik); sygnal?.removeEventListener('abort', przerwij); }
   }
-  return { async odczytaj(repo, sygnal) {
+  return { async rozszerz(repo, poprzedni, zakres, sygnal) {
+    if (!sprawdzOdczytGitHub(poprzedni) || repo.dostawca !== 'GITHUB' || repo.github?.tozsamosc?.identyfikator !== poprzedni.tozsamosc.identyfikator) return niepoprawna();
+    if (zakres.rodzaj === 'COMMIT' && (!poprawnySha(zakres.sha) || !poprzedni.commity.some((commit) => commit.sha === zakres.sha))) return niepoprawna();
+    if (zakres.rodzaj === 'POROWNANIE' && (![zakres.podstawa, zakres.cel].every((sha) => poprawnySha(sha) && poprzedni.commity.some((commit) => commit.sha === sha)) || zakres.podstawa === zakres.cel)) return niepoprawna();
+    // Potwierdzenie tożsamości zapobiega odczytowi nowego repozytorium pod zwolnionym adresem.
+    const tozsamosc = (await pobierz(`/repositories/${poprzedni.tozsamosc.identyfikator}`, metadane, sygnal)).dane;
+    if (tozsamosc.identyfikator !== poprzedni.tozsamosc.identyfikator || tozsamosc.adres !== poprzedni.tozsamosc.adres) throw new BladGitHub('BLAD', 'Zmienił się adres repozytorium. Najpierw synchronizuj metadane.');
+    const baza = `/repos/${encodeURIComponent(tozsamosc.wlasciciel)}/${encodeURIComponent(tozsamosc.nazwa)}`;
+    const pobrano = new Date(zegar()).toISOString();
+    const wynik = structuredClone(poprzedni);
+    const zakresDanych: InteligencjaGitHub = wynik.inteligencja ?? { szczegoly: [] };
+    if (zakres.rodzaj === 'COMMIT') {
+      const odpowiedz = await pobierz(`${baza}/commits/${zakres.sha}?per_page=100&page=1`, (wartosc) => {
+        if (!rekord(wartosc) || !rekord(wartosc.stats) || !Array.isArray(wartosc.files) || wartosc.files.length > 100) return niepoprawna();
+        const commit = odczytajCommit(wartosc);
+        if (commit.sha !== zakres.sha || !licznikGitHub(wartosc.stats.total) || wartosc.stats.total !== Number(wartosc.stats.additions) + Number(wartosc.stats.deletions)) return niepoprawna();
+        return inteligencja({ szczegoly: [{ ...commit, dodano: wartosc.stats.additions as number, usunieto: wartosc.stats.deletions as number, pliki: pliki(wartosc.files), ograniczone: false, pobrano }] }).szczegoly[0]!;
+      }, sygnal);
+      zakresDanych.szczegoly = [...zakresDanych.szczegoly.filter((commit) => commit.sha !== zakres.sha), { ...odpowiedz.dane, pobrano, ograniczone: odpowiedz.nastepna || odpowiedz.dane.pliki.length === 100 }].slice(-20);
+    } else if (zakres.rodzaj === 'POROWNANIE') {
+      const odpowiedz = await pobierz(`${baza}/compare/${zakres.podstawa}...${zakres.cel}?per_page=1&page=1`, (wartosc) => {
+        if (!rekord(wartosc) || !rekord(wartosc.base_commit) || wartosc.base_commit.sha !== zakres.podstawa) return niepoprawna();
+        return inteligencja({ szczegoly: [], porownanie: { podstawa: zakres.podstawa, cel: zakres.cel, status: wartosc.status as 'ahead', liczbaCommitow: wartosc.total_commits as number, pliki: pliki(wartosc.files), ograniczone: true, pobrano } }).porownanie!;
+      }, sygnal);
+      // GitHub zwraca najwyżej 300 plików porównania; brak kolejnej strony nie dowodzi kompletności plików.
+      zakresDanych.porownanie = { ...odpowiedz.dane, pobrano, ograniczone: odpowiedz.dane.pliki.length === 300 };
+    } else if (zakres.rodzaj === 'PR') {
+      const odpowiedz = await pobierz(`${baza}/pulls?state=all&sort=updated&direction=desc&per_page=20&page=1`, (wartosc) => {
+        if (!Array.isArray(wartosc) || wartosc.length > 20) return niepoprawna();
+        const rekordy = wartosc.map((pr: unknown) => {
+          if (!rekord(pr) || !rekord(pr.head)) return niepoprawna();
+          return { numer: pr.number as number, tytul: pr.title as string, stan: pr.state as 'open', szkic: pr.draft as boolean, sha: pr.head.sha as string, zaktualizowano: pr.updated_at as string };
+        });
+        return inteligencja({ szczegoly: [], pullRequesty: { rekordy, ograniczone: false, pobrano } }).pullRequesty!;
+      }, sygnal);
+      zakresDanych.pullRequesty = { ...odpowiedz.dane, pobrano, ograniczone: odpowiedz.nastepna };
+    } else if (zakres.rodzaj === 'WORKFLOW') {
+      const odpowiedz = await pobierz(`${baza}/actions/runs?per_page=20&page=1`, (wartosc) => {
+        const rekordy = uruchomienia(wartosc);
+        return inteligencja({ szczegoly: [], workflow: { rekordy, ograniczone: (wartosc as { total_count: number }).total_count > rekordy.length, pobrano } }).workflow!;
+      }, sygnal);
+      zakresDanych.workflow = { ...odpowiedz.dane, pobrano, ograniczone: odpowiedz.nastepna || odpowiedz.dane.ograniczone };
+    } else return niepoprawna();
+    wynik.inteligencja = inteligencja(zakresDanych);
+    return wynik;
+  }, async odczytaj(repo, sygnal) {
     const adres = rozpoznajAdresGitHub(repo.adresZdalny ?? '');
     const znaneId = repo.github?.tozsamosc?.identyfikator;
     if (znaneId !== undefined && (!Number.isSafeInteger(znaneId) || znaneId <= 0)) return niepoprawna();

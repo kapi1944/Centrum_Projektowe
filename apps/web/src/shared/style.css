@@ -112,6 +112,14 @@ div.formularz-realizacji { display: grid; grid-template-columns: auto minmax(0, 
 [id^='praca-'], [id^='pytanie-'], [id^='blokada-'] { scroll-margin-top: 20px; }
 .podglad-kontekstu { display: block; width: 100%; min-height: 24rem; font-family: 'Cascadia Code', Consolas, monospace; }
 .podglad-json { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; font-size: .8rem; }
+.inteligencja-github .panele-github { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 16px; }
+.inteligencja-github .panele-github > section { margin: 0; }
+.inteligencja-github .historia-github, .inteligencja-github .lista-github { list-style: none; padding: 0; margin-block: 16px; }
+.inteligencja-github li { border-top: 1px solid var(--obramowanie); padding: 16px 0; overflow-wrap: anywhere; }
+.inteligencja-github .naglowek-commita { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+.inteligencja-github time, .inteligencja-github .ograniczenia-github { color: var(--tekst-drugorzedny); font-size: .85rem; }
+.inteligencja-github select { width: 100%; }
+.inteligencja-github section { padding: clamp(12px, 2vw, 24px); }
 [role='alert'], [role='status']:not(:empty) { padding: 12px 16px; border-radius: 8px; border: 1px solid #487468; color: #b2dfca; background: #20332e; }
 [role='alert'] { color: #ffbdc3; background: #39252c; border-color: #8d505b; }
 [role='status']:empty { display: none; }

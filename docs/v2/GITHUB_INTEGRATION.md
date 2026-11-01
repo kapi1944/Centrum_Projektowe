@@ -1,5 +1,7 @@
 # Etap 10.1 — odczyt i synchronizacja publicznych repozytoriów GitHub
 
+Dokument opisuje historyczny fundament Etapu 10.1. Aktualne rozszerzenie o szczegóły commitów, porównania, PR, Actions i uzgodnienia opisuje [R3 — GitHub Intelligence 2.0](R3_GITHUB_INTELLIGENCE.md).
+
 ## Zakres i punkt wejścia
 
 Rozszerzenie istniejącego Etapu 9. Pierwotny preflight: `main`, `d7e330ef3a95ed65bec8693c0348be19dd9a1abf`, czyste drzewo, kompletne RepoConnection / RepositorySnapshot / Evidence / ContextPack, IndexedDB v8, backup v4. Początkowe testy repozytoriów, UI i backupu: 42/42. Po wznowieniu zapisany częściowy kod był już w lokalnym `25e38c8`; dalsza praca zachowuje ten commit i historię.

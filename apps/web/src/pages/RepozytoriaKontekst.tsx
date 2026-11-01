@@ -1,6 +1,7 @@
 import { utworzCzytnikGitHub } from '../infrastructure/githubApi';
 import { utworzSynchronizacjeRepozytorium } from '../application/synchronizujRepozytorium';
-import { statusPolaczenia, statusyGitHub } from '../domain/synchronizacjaGitHub';
+import { statusPolaczenia, statusyGitHub, type ZakresGitHub } from '../domain/synchronizacjaGitHub';
+import { PanelInteligencjiGitHub } from './PanelInteligencjiGitHub';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { DaneKopii } from '../domain/kopieZapasowe';
@@ -38,7 +39,7 @@ export function RepozytoriaKontekst({ dane, wykonaj }: { dane: DaneKopii; wykona
           <p>Projekty: {repo.projektIds.map((id) => dane.projekty.find((projekt) => projekt.id === id)?.nazwa).join(', ')}</p>
           <p className="surowy-wpis">{repo.notatka}</p>
           <button onClick={() => { ustawNowy(false); ustawEdycje(repo); }}>Edytuj metadane: {repo.nazwa}</button>
-          <SynchronizacjaGitHub repo={repo} dane={dane} wykonaj={wykonaj} />
+          <SynchronizacjaGitHub repo={repo} dane={dane} projektId={projekt.id} wykonaj={wykonaj} />
           <h4>Aktualna obserwacja</h4>{ostatnia ? <OpisObserwacji rekord={ostatnia} /> : <p>Brak zarejestrowanej obserwacji.</p>}
           <details><summary>Historia obserwacji ({historia.length})</summary>{historia.map((rekord) => <div key={rekord.id}><OpisObserwacji rekord={rekord} /></div>)}</details>
           <details><summary>Dodaj obserwację: {repo.nazwa}</summary><FormularzObserwacji repo={repo} dane={dane} wykonaj={wykonaj} /></details>
@@ -53,16 +54,16 @@ export function RepozytoriaKontekst({ dane, wykonaj }: { dane: DaneKopii; wykona
     <GeneratorKontekstu dane={dane} projektId={projekt.id} />
   </>;
 }
-function SynchronizacjaGitHub({ repo, dane, wykonaj }: { repo: PolaczenieRepozytorium; dane: DaneKopii; wykonaj: Zapisz }) {
+function SynchronizacjaGitHub({ repo, dane, projektId, wykonaj }: { repo: PolaczenieRepozytorium; dane: DaneKopii; projektId: string; wykonaj: Zapisz }) {
   const zapis = useZapis(wykonaj);
   const kontroler = useRef<AbortController | null>(null);
   const [teraz, ustawTeraz] = useState(() => Date.now());
   useEffect(() => () => kontroler.current?.abort(), []);
   const status = zapis.zajety ? 'SPRAWDZANIE' : statusPolaczenia(repo, teraz);
-  function uruchom() {
+  function uruchom(zakres?: ZakresGitHub) {
     void zapis.zapisz(async () => {
       kontroler.current = new AbortController();
-      await synchronizuj(repo, dane, wykonaj, kontroler.current.signal);
+      await synchronizuj(repo, dane, wykonaj, kontroler.current.signal, zakres);
       ustawTeraz(Date.now());
     });
   }
@@ -74,10 +75,11 @@ function SynchronizacjaGitHub({ repo, dane, wykonaj }: { repo: PolaczenieRepozyt
     {repo.github?.tozsamosc && <p>Publiczne · {repo.github.tozsamosc.archiwalne ? 'Archiwalne' : 'Aktywne'}</p>}
     <p>{repo.github?.komunikat}</p>
     {repo.github?.ponowPo && <p>Można ponowić po: {formatujDate(repo.github.ponowPo)}</p>}
-    <div className="akcje-wpisu"><button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={uruchom}>Sprawdź połączenie</button>
-    <button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={uruchom}>Synchronizuj</button></div>
+    <div className="akcje-wpisu"><button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={() => uruchom()}>Sprawdź połączenie</button>
+    <button disabled={zapis.zajety || status === 'NIEPOLACZONE'} onClick={() => uruchom()}>Synchronizuj</button></div>
     {zapis.zajety && <button onClick={() => kontroler.current?.abort()}>Anuluj sprawdzanie</button>}
     <p role="status">{zapis.komunikat}</p>
+    {repo.dostawca === 'GITHUB' && <PanelInteligencjiGitHub repo={repo} dane={dane} projektId={projektId} wykonaj={wykonaj} zajety={zapis.zajety} odczytaj={uruchom} />}
   </section>;
 }
 function OpisObserwacji({ rekord }: { rekord: MigawkaRepozytorium }) {
