@@ -3,11 +3,12 @@ import { useState } from 'react';
 import { typyUwagi, wagiUwagi, type ElementUwagi, type MigawkaProjektu } from '../domain/stanProjektu';
 import type { Projekt } from '../domain/modele';
 import { formatujDate } from '../shared/formatujDate';
+import { EtykietaStatusu, PustyStan } from '../shared/Komponenty';
 
 export function ListaUwagi({ elementy }: { elementy: ElementUwagi[] }) {
   return elementy.length === 0 ? <p>Brak spraw wymagających uwagi.</p> : <ul className="lista-rekordow">{elementy.map((element) => <li key={element.id}>
     <h3>{element.tytul}</h3>
-    <p>{typyUwagi[element.typ]} · Waga: {wagiUwagi[element.waga]}</p>
+    <p>{typyUwagi[element.typ]} · <EtykietaStatusu ton={element.waga === 'HIGH' || element.waga === 'CRITICAL' ? 'blad' : element.waga === 'LOW' ? 'neutralny' : 'ostrzezenie'}>Waga: {wagiUwagi[element.waga]}</EtykietaStatusu></p>
     <p className="surowy-wpis">{element.opis}</p>
     <strong>Dlaczego to widzę?</strong><p>{element.powod}</p>
     <p>{element.odnosnikiZrodel.map((zrodlo) => <span key={`${zrodlo.id}:${zrodlo.adres}`}><Link to={zrodlo.adres}>{zrodlo.tytul}</Link>{' '}</span>)}</p>
@@ -32,7 +33,7 @@ export function WymagaUwagi({ projekty, elementy }: { projekty: Projekt[]; eleme
         <option value="">Wszystkie wagi</option>{Object.entries(wagiUwagi).map(([id, tytul]) => <option key={id} value={id}>{tytul}</option>)}
       </select>
     </div>
-    {widoczne.length === 0 && <p>{elementy.length ? 'Brak spraw dla wybranych filtrów.' : 'Brak spraw wymagających uwagi.'}</p>}
+    {widoczne.length === 0 && <PustyStan>{elementy.length ? 'Brak spraw dla wybranych filtrów.' : 'Brak spraw wymagających uwagi.'}</PustyStan>}
     {projekty.filter((projekt) => widoczne.some((element) => element.projektId === projekt.id)).map((projekt) => <section key={projekt.id}>
       <h2><Link to={`/projekty/${projekt.id}`}>{projekt.nazwa}</Link></h2>
       <ListaUwagi elementy={widoczne.filter((element) => element.projektId === projekt.id)} />

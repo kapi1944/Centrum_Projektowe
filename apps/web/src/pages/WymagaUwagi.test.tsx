@@ -48,7 +48,7 @@ it('pokazuje powód uwagi, prowadzi do blokera i usuwa uwagę po rozwiązaniu or
   const bloker = screen.getByRole('article', { name: 'Blokada: Brak dostępu' });
   await osoba.click(within(bloker).getByRole('button', { name: 'Rozwiąż blokadę' }));
   await within(bloker).findByText('Rozwiązana · Waga: Wysoka');
-  await osoba.click(within(screen.getByRole('navigation')).getByRole('link', { name: 'Wymaga uwagi' }));
+  await osoba.click(within(screen.getByRole('navigation', { name: 'Główna nawigacja' })).getByRole('link', { name: 'Wymaga uwagi' }));
   expect(await screen.findByText('Brak spraw wymagających uwagi.')).toBeVisible();
   widok.unmount();
   render(<MemoryRouter initialEntries={['/uwaga']}><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);

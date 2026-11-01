@@ -10,22 +10,12 @@ import { Ustalenia } from '../pages/Ustalenia';
 import { Korekty } from '../pages/Korekty';
 import { WymagaUwagi } from '../pages/WymagaUwagi';
 import { RepozytoriaKontekst } from '../pages/RepozytoriaKontekst';
+import { PowlokaAplikacji } from './PowlokaAplikacji';
 
 export function Aplikacja({ repozytorium }: { repozytorium: RepozytoriumProjektowe }) {
   const rejestr = useRejestrProjektowy(repozytorium);
   const lokalizacja = useLocation();
-  return <>
-    <a className="pomin-nawigacje" href="#tresc">Przejdź do treści</a>
-    <header>
-      <strong>Centrum Projektowe</strong>
-      <nav aria-label="Główna nawigacja">
-        <NavLink to="/" end>Start</NavLink>
-        <NavLink to="/projekty">Projekty</NavLink>
-        <NavLink to="/uwaga">Wymaga uwagi</NavLink>
-        <NavLink to="/inbox">Skrzynka</NavLink><NavLink to="/dane">Dane i kopie zapasowe</NavLink>
-      </nav>
-    </header>
-    <main id="tresc" tabIndex={-1}>
+  return <PowlokaAplikacji>
       {rejestr.stan === 'ladowanie' && <p role="status">Odczytywanie danych lokalnych…</p>}
       {rejestr.stan === 'blad' && <p role="alert">{rejestr.blad}</p>}
       {rejestr.stan === 'gotowy' && <Routes>
@@ -40,7 +30,5 @@ export function Aplikacja({ repozytorium }: { repozytorium: RepozytoriumProjekto
         <Route path="/dane" element={<KopieZapasowe repozytorium={repozytorium} odswiez={rejestr.odswiez} />} />
         <Route path="*" element={<><h1>Nie znaleziono strony</h1><NavLink to="/">Wróć na start</NavLink></>} />
       </Routes>}
-    </main>
-    <footer>Dane są przechowywane w tej przeglądarce. Usunięcie danych witryny usuwa także zapisane projekty, wpisy i historię. Możesz wykonać kopię zapasową na ekranie „Dane i kopie zapasowe”. Odczyt publicznego GitHub jest dostępny w repozytoriach projektu.</footer>
-  </>;
+  </PowlokaAplikacji>;
 }

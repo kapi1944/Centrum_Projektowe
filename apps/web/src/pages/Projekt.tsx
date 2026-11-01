@@ -9,6 +9,7 @@ import { FormularzPunktuPowrotu } from '../features/projekty/FormularzPunktuPowr
 import { formatujDate } from '../shared/formatujDate';
 import type { ObrazProjektu } from '../domain/stanProjektu';
 import { StanTeraz } from './WymagaUwagi';
+import { EtykietaStatusu, PrzyciskAkcji } from '../shared/Komponenty';
 
 export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje, wykonajRealizacje, obrazyProjektow }: {
   obrazyProjektow: ObrazProjektu[];
@@ -41,10 +42,12 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje
   return <>
     <Link to="/projekty">Wszystkie projekty</Link>
     <h1>{projekt.nazwa}</h1>
-    <Link to={`/projekty/${projekt.id}/ustalenia`}>Ustalenia projektu</Link>
-    <p><Link to={`/projekty/${projekt.id}/korekty`}>Korekty i rewizje planu</Link></p>
-    <p><Link to={`/projekty/${projekt.id}/repozytoria`}>Repozytoria i generator kontekstu</Link></p>
-    <p>{statusyProjektu[projekt.status]}</p>
+    <nav className="zakladki-projektu" aria-label="Moduły projektu">
+      <Link to={`/projekty/${projekt.id}/ustalenia`}>Ustalenia projektu</Link>
+      <Link to={`/projekty/${projekt.id}/korekty`}>Korekty i rewizje planu</Link>
+      <Link to={`/projekty/${projekt.id}/repozytoria`}>Repozytoria i generator kontekstu</Link>
+    </nav>
+    <p><EtykietaStatusu ton={projekt.zarchiwizowano ? 'neutralny' : projekt.status === 'ACTIVE' ? 'sukces' : projekt.status === 'PAUSED' ? 'ostrzezenie' : 'akcent'}>{statusyProjektu[projekt.status]}</EtykietaStatusu></p>
     {projekt.zarchiwizowano && <p role="status">Projekt archiwalny od {formatujDate(projekt.zarchiwizowano)}. Dane i historia zostały zachowane.</p>}
     <p className="surowy-wpis">{projekt.opis || 'Brak opisu.'}</p>
     <p>Ostatnia aktywność: {formatujDate(projekt.ostatniaAktywnosc)}</p>
@@ -69,7 +72,7 @@ export function Projekt({ projekty, zdarzenia, zmienProjekt, realizacja, decyzje
         await zmienProjekt(projekt.id, { rodzaj: 'edycja', dane });
         ustawEdycje(false);
       }} />}
-      {!edycja && <p><button onClick={archiwizuj} disabled={archiwizowanie}>{archiwizowanie ? 'Archiwizowanie…' : 'Archiwizuj projekt'}</button></p>}
+      {!edycja && <p><PrzyciskAkcji wariant="niebezpieczny" onClick={archiwizuj} disabled={archiwizowanie}>{archiwizowanie ? 'Archiwizowanie…' : 'Archiwizuj projekt'}</PrzyciskAkcji></p>}
     </>}
     {blad && <p role="alert">{blad}</p>}
     <PanelRealizacji projekt={projekt} realizacja={realizacja} decyzje={decyzje} wykonaj={wykonajRealizacje} />

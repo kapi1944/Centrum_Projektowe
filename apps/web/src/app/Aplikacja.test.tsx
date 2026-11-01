@@ -50,7 +50,7 @@ describe('Shell aplikacji', () => {
     };
     render(<MemoryRouter><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);
     expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się odczytać');
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('main')).queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('zachowuje treść formularza po błędzie zapisu', async () => {

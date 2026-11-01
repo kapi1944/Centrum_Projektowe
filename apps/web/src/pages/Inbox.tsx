@@ -9,6 +9,7 @@ import type { AnalizaWpisu, OperacjaAnalizyWpisu } from '../domain/analizaWpisu'
 import type { OperacjaRealizacji, StanRealizacji } from '../domain/realizacja';
 import { ReviewAnalizy } from '../features/inbox/ReviewAnalizy';
 import type { PrzebiegAnalizyWpisu } from '../domain/przebiegiAnaliz';
+import { EtykietaStatusu, PustyStan } from '../shared/Komponenty';
 
 export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, wykonajUstalenie, analizyWpisow, przebiegiAnaliz, preferujAnalize, analizujWpis, wykonajAnalizeWpisu, realizacja, wykonajRealizacje }: {
   przebiegiAnaliz: PrzebiegAnalizyWpisu[]; preferujAnalize: (id: string) => Promise<void>;
@@ -77,10 +78,10 @@ export function Inbox({ projekty, wpisy, dodajWpis, wykonajAkcjeWpisu, analizy, 
     </form>
     <h2>Zapisane wpisy</h2>
     <label><input type="checkbox" checked={pokazOdrzucone} onChange={(zdarzenie) => ustawPokazOdrzucone(zdarzenie.target.checked)} /> Pokaż odrzucone</label>
-    {widoczneWpisy.length === 0 ? <p>Brak wpisów w tym widoku.</p> : <ul className="lista-rekordow">{[...widoczneWpisy].sort((lewy, prawy) => prawy.utworzono.localeCompare(lewy.utworzono)).map((wpis) => <li key={wpis.id} id={`wpis-${wpis.id}`}>
+    {widoczneWpisy.length === 0 ? <PustyStan>Brak wpisów w tym widoku.</PustyStan> : <ul className="lista-rekordow">{[...widoczneWpisy].sort((lewy, prawy) => prawy.utworzono.localeCompare(lewy.utworzono)).map((wpis) => <li key={wpis.id} id={`wpis-${wpis.id}`}>
       <h3>Oryginalny wpis</h3>
       <p className="surowy-wpis">{wpis.trescOryginalna}</p>
-      <small>{wpis.projektId ? <Link to={`/projekty/${wpis.projektId}`}>{projekty.find((projekt) => projekt.id === wpis.projektId)?.nazwa ?? 'Nieznany projekt'}</Link> : 'Bez przypisania'} · {formatujDate(wpis.utworzono)} · {etykietyStatusowWpisu[wpis.status]}{wpis.odlozonoDoAnalizy ? ' · Do analizy później' : ''}</small>
+      <small>{wpis.projektId ? <Link to={`/projekty/${wpis.projektId}`}>{projekty.find((projekt) => projekt.id === wpis.projektId)?.nazwa ?? 'Nieznany projekt'}</Link> : 'Bez przypisania'} · {formatujDate(wpis.utworzono)} · <EtykietaStatusu>{etykietyStatusowWpisu[wpis.status]}{wpis.odlozonoDoAnalizy ? ' · Do analizy później' : ''}</EtykietaStatusu></small>
       <AkcjeWpisu wpis={wpis} projekty={projekty} wykonajAkcje={wykonajAkcjeWpisu} />
       <ReviewAnalizy wpis={wpis} analizy={analizyWpisow.filter((analiza) => analiza.wpisId === wpis.id)} przebiegi={przebiegiAnaliz.filter((przebieg) => przebieg.sourceId === wpis.id)} preferuj={preferujAnalize} projekty={projekty} analizuj={analizujWpis} wykonaj={wykonajAnalizeWpisu} realizacja={realizacja} wykonajRealizacje={wykonajRealizacje} />
       <PanelWplywu zrodlo={{ typ: 'CAPTURE', id: wpis.id }} analizy={analizy} wykonaj={wykonajUstalenie} />
