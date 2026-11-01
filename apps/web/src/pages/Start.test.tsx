@@ -35,10 +35,37 @@ function przygotujDane() {
 }
 
 function pokaz(dane = przygotujDane(), zdarzenia: ZdarzenieAktywnosci[] = []) {
-  return render(<MemoryRouter><Start projekty={dane.projekty} wpisy={dane.wpisy} obrazyProjektow={dane.projekty.map((projekt) => wyliczStanProjektu(dane, projekt))} zdarzenia={zdarzenia} /></MemoryRouter>);
+  return render(<MemoryRouter><Start projekty={dane.projekty} wpisy={dane.wpisy} obrazyProjektow={dane.projekty.map((projekt) => wyliczStanProjektu(dane, projekt))} zdarzenia={zdarzenia} etapy={dane.etapy} repozytoria={dane.polaczeniaRepozytoriow} /></MemoryRouter>);
 }
 
 describe('Pulpit zarządzania projektami', () => {
+  it('pokazuje od razu nowy pomysł i pozwala wyczyścić wyszukiwanie bez zmiany danych', async () => {
+    const dane = przygotujDane(); const przed = structuredClone(dane); pokaz(dane);
+    const panel = screen.getByRole('region', { name: 'Twoje projekty' });
+    expect(within(panel).getByRole('heading', { name: 'Gamma' })).toBeInTheDocument();
+    const osoba = uzytkownik.setup();
+    await osoba.type(screen.getByRole('textbox', { name: 'Szukaj projektu' }), 'TEST INTERFEJSU');
+    expect(within(panel).getAllByRole('heading', { level: 3 }).map((naglowek) => naglowek.textContent)).toEqual(['Alfa']);
+    await osoba.clear(screen.getByRole('textbox', { name: 'Szukaj projektu' }));
+    await osoba.type(screen.getByRole('textbox', { name: 'Szukaj projektu' }), 'Nieistniejący');
+    expect(within(panel).queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
+    await osoba.click(screen.getByRole('button', { name: 'Wyczyść filtry' }));
+    expect(within(panel).getAllByRole('heading', { level: 3 })).toHaveLength(5);
+    expect(dane).toEqual(przed);
+  });
+
+  it('pokazuje rzeczywisty etap w toku i prowadzi z kafelka bezpośrednio do repozytoriów', () => {
+    const dane = przygotujDane(); const czas = '2026-11-01T10:00:00Z';
+    dane.etapy = [
+      { id: 'plan', projektId: 'a', nazwa: 'Nie zaczęto', opis: '', status: 'PLANNED', kolejnosc: 0, utworzono: czas, zaktualizowano: czas, wersja: 1 },
+      { id: 'etap', projektId: 'a', nazwa: 'Weryfikacja produktu', opis: '', status: 'IN_PROGRESS', kolejnosc: 1, utworzono: czas, zaktualizowano: czas, wersja: 1 },
+    ];
+    pokaz(dane);
+    const panel = screen.getByRole('region', { name: 'Twoje projekty' });
+    expect(within(panel).getByRole('link', { name: 'Weryfikacja produktu' })).toHaveAttribute('href', '/projekty/a#etap-etap');
+    expect(within(panel).queryByText('Nie zaczęto')).not.toBeInTheDocument();
+    expect(within(panel).getByRole('link', { name: 'GitHub i repozytoria: Alfa' })).toHaveAttribute('href', '/projekty/a/repozytoria');
+  });
   it('liczy rzeczywiste metryki z projekcji, bez archiwum, zakończonych zadań i innych rodzajów pracy', () => {
     const dane = przygotujDane();
     const przed = structuredClone(dane);
@@ -55,10 +82,12 @@ describe('Pulpit zarządzania projektami', () => {
     pokaz();
     const osoba = uzytkownik.setup();
     const panel = screen.getByRole('region', { name: 'Twoje projekty' });
-    expect(within(panel).getAllByRole('heading', { level: 3 }).map((naglowek) => naglowek.textContent)).toEqual(['Alfa']);
+    expect(within(panel).getAllByRole('heading', { level: 3 }).map((naglowek) => naglowek.textContent)).toEqual(['Koniec', 'Archiwum', 'Beta', 'Gamma', 'Alfa']);
     expect(within(panel).getByText('Formularz')).toBeInTheDocument();
     expect(within(panel).getByText('Test interfejsu')).toBeInTheDocument();
-    expect(within(panel).getByText('Aktywne blokady: 1')).toBeInTheDocument();
+    expect(within(panel).getAllByText('Aktywne blokady: 1')).toHaveLength(2);
+    await osoba.selectOptions(screen.getByLabelText('Filtr projektów'), 'ACTIVE');
+    expect(within(panel).getAllByRole('heading', { level: 3 }).map((naglowek) => naglowek.textContent)).toEqual(['Alfa']);
     await osoba.selectOptions(screen.getByLabelText('Filtr projektów'), 'wszystkie');
     expect(within(panel).getAllByRole('heading', { level: 3 }).map((naglowek) => naglowek.textContent)).toEqual(['Koniec', 'Archiwum', 'Beta', 'Gamma', 'Alfa']);
     await osoba.selectOptions(screen.getByLabelText('Sortuj projekty'), 'status');
@@ -90,7 +119,8 @@ describe('Pulpit zarządzania projektami', () => {
   it('używa istniejących tras szybkich działań i zmienia projekt repozytorium', async () => {
     pokaz();
     const panel = screen.getByRole('region', { name: 'Szybkie działania' });
-    for (const [nazwa, adres] of [['Nowy projekt', '/projekty#nazwa-projektu'], ['Nowy wpis', '/inbox#tresc-wpisu'], ['Otwórz Skrzynkę', '/inbox'], ['Wymaga uwagi', '/uwaga']]) {
+    expect(screen.getByRole('link', { name: 'Nowy projekt' })).toHaveAttribute('href', '/projekty#nazwa-projektu');
+    for (const [nazwa, adres] of [['Nowy wpis', '/inbox#tresc-wpisu'], ['Otwórz Skrzynkę', '/inbox'], ['Wymaga uwagi', '/uwaga']]) {
       expect(within(panel).getByRole('link', { name: nazwa })).toHaveAttribute('href', adres);
     }
     expect(within(panel).getByRole('link', { name: 'Repozytoria' })).toHaveAttribute('href', '/projekty/b/repozytoria');

@@ -1,18 +1,18 @@
 :root {
   font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   color: #e6edf6;
-  background: #141820;
+  background: #10141d;
   color-scheme: dark;
   line-height: 1.6;
   font-synthesis: none;
-  --tlo: #141820;
-  --powierzchnia: #1d232d;
-  --podwyzszona: #252d39;
-  --obramowanie: #34404f;
-  --tekst-drugorzedny: #a9b6c8;
-  --akcent: #91bcff;
-  --cien: 0 8px 24px #0c1018;
-  --promien: 12px;
+  --tlo: #10141d;
+  --powierzchnia: #181e29;
+  --podwyzszona: #1f2734;
+  --obramowanie: #303b4c;
+  --tekst-drugorzedny: #a5b2c6;
+  --akcent: #a8c8ff;
+  --cien: 0 8px 24px #0a0d14;
+  --promien: 14px;
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 0; }
@@ -207,4 +207,128 @@ div.formularz-realizacji { display: grid; grid-template-columns: auto minmax(0, 
   .pulpit .filtry-pulpitu { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .pulpit .wybor-repozytorium { align-items: stretch; flex-direction: column; }
   .pulpit .wybor-repozytorium select { flex: auto; max-width: 100%; }
+}
+
+/* Glassplate 2.0: pełne powierzchnie, czytelny rytm i projekty na pierwszym planie. */
+.tylko-czytnik { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.glassplate-2 .pasek-boczny { background: #141a24; border-color: #2b3443; padding-top: 30px; }
+.glassplate-2 .marka { margin-bottom: 42px; }
+.glassplate-2 .sygnet { background: #b1e2c4; border-color: #c6f0d6; color: #153226; border-radius: 13px; box-shadow: 0 4px 12px #0c1018; }
+.glassplate-2 .opis-marki { color: #a5b2c6; }
+.glassplate-2 .opis-marki strong { color: #f1f5fc; letter-spacing: -.03em; }
+.glassplate-2 .pasek-boczny nav a { border-color: #141a24; min-height: 48px; gap: 12px; }
+.glassplate-2 .pasek-boczny nav a:hover { background: #202a39; border-color: #344358; }
+.glassplate-2 .pasek-boczny nav a[aria-current='page'] { background: #25354a; border-color: #415d80; color: #dceaff; box-shadow: inset 3px 0 #aacdff; }
+.glassplate-2 .symbol-nawigacji { flex-shrink: 0; }
+.glassplate-2 .gorny-pasek { position: sticky; top: 0; z-index: 5; min-height: 72px; background: #141a24; border-color: #2b3443; }
+.glassplate-2 main { padding-block: 32px; }
+.glassplate-2 [id] { scroll-margin-top: 96px; }
+.glassplate-2 .sciezka-ekranu { font-size: .78rem; }
+.glassplate-2 .stopka-aplikacji { max-width: 90ch; line-height: 1.65; }
+.pulpit-premium .naglowek-pulpitu { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+.pulpit-premium .nadtytul { display: block; color: #a6bbd9; font-size: .65rem; font-weight: 650; letter-spacing: .14em; margin-bottom: 12px; }
+.pulpit-premium h1 { font-size: clamp(1.7rem, 2.6vw, 2.25rem); letter-spacing: -.045em; margin-bottom: 10px; }
+.pulpit-premium .naglowek-pulpitu .naglowek-sekcji { margin: 0; }
+.pulpit-premium .naglowek-pulpitu p { font-size: .9rem; margin: 0; }
+.pulpit-premium .glowna-akcja { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 46px; padding: 11px 18px; border: 1px solid #b1e2c4; border-radius: 9px; background: #b1e2c4; color: #163225; font-size: .85rem; font-weight: 650; text-decoration: none; flex-shrink: 0; }
+.pulpit-premium .glowna-akcja:hover { background: #cef1db; border-color: #cef1db; }
+.pulpit-premium .metryki-pulpitu { gap: 12px; }
+.pulpit-premium .kafelek-metryki { padding: 17px 20px; border-top: 1px solid var(--obramowanie); border-radius: 10px; grid-template-columns: 1fr auto; align-items: center; gap: 6px 10px; box-shadow: none; background: #171d28; }
+.pulpit-premium .kafelek-metryki strong { grid-column: 2; grid-row: 1 / 3; font-size: 1.9rem; color: #dce8fb; }
+.pulpit-premium .kafelek-metryki small { font-size: .68rem; line-height: 1.5; }
+.pulpit-premium .opis-zakresu { font-size: .7rem; margin: 10px 0 20px; }
+.pulpit-premium .obszar-pulpitu { display: grid; grid-template-columns: minmax(0, 1fr) 296px; gap: 22px; align-items: start; }
+.pulpit-premium .panel-projektow { margin: 0; padding: 0; border: 0; background: var(--tlo); box-shadow: none; }
+.pulpit-premium .naglowek-sekcji { margin-bottom: 18px; }
+.pulpit-premium .panel-projektow .naglowek-sekcji p { font-size: .76rem; }
+.pulpit-premium .filtry-pulpitu { gap: 9px; margin-bottom: 14px; }
+.pulpit-premium .filtry-pulpitu select { flex: 1 1 140px; min-height: 40px; padding: 8px 10px; font-size: .76rem; background: #181f2b; border-color: #364255; }
+.pulpit-premium .pole-szukania { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; border: 1px solid #364255; border-radius: 8px; padding-left: 12px; color: #a5b2c6; background: #181f2b; }
+.pulpit-premium .pole-szukania:focus-within { border-color: var(--akcent); }
+.pulpit-premium .pole-szukania input { border: 0; background: #181f2b; min-height: 42px; font-size: .8rem; padding-left: 2px; }
+.pulpit-premium .karty-projektow { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; }
+.pulpit-premium .kafelek-projektu { --kolor-projektu: #a8c8ff; padding: 20px; position: relative; display: flex; flex-direction: column; border: 1px solid #344155; border-top: 2px solid var(--kolor-projektu); background: #1a2230; box-shadow: 0 5px 16px #0b1018; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; animation: wejscie-kafelka 180ms ease-out; }
+.pulpit-premium .projekt-active { --kolor-projektu: #8dd6b0; }
+.pulpit-premium .projekt-paused, .pulpit-premium .projekt-blocked { --kolor-projektu: #ebbc7b; }
+.pulpit-premium .projekt-completed, .pulpit-premium .projekt-archiwalny { --kolor-projektu: #a5aec0; }
+.pulpit-premium .kafelek-projektu:hover, .pulpit-premium .kafelek-projektu:focus-within { transform: translateY(-3px); border-color: #6c86a9; border-top-color: var(--kolor-projektu); box-shadow: 0 12px 24px #090e16; }
+.pulpit-premium .gora-kafelka { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.pulpit-premium .monogram-projektu { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #2a384d; color: var(--kolor-projektu); border: 1px solid #40516b; font-size: .8rem; font-weight: 650; letter-spacing: -.03em; }
+.pulpit-premium .etykieta-statusu { font-size: .65rem; }
+.pulpit-premium .kafelek-projektu h3 { margin: 18px 0 0; font-size: 1.06rem; line-height: 1.4; }
+.pulpit-premium .tytul-kafelka { display: flex; gap: 12px; justify-content: space-between; align-items: start; }
+.pulpit-premium .tytul-kafelka svg { flex-shrink: 0; margin-top: 3px; color: #a8bddb; }
+.pulpit-premium .data-kafelka { color: var(--tekst-drugorzedny); font-size: .68rem; margin: 6px 0 18px; }
+.pulpit-premium .etap-kafelka { display: flex; align-items: center; gap: 7px; color: #bbc9dd; font-size: .76rem; margin: 0 0 15px; }
+.pulpit-premium .etap-kafelka svg { flex-shrink: 0; color: #a6b8d3; }
+.pulpit-premium .etap-kafelka a { color: #bbc9dd; }
+.pulpit-premium .nastepny-krok-kafelka { background: #141c28; border: 1px solid #2f3e53; border-left: 2px solid var(--kolor-projektu); padding: 11px 13px; border-radius: 7px; flex: 1; }
+.pulpit-premium .nastepny-krok-kafelka > span { color: #a8b9d1; font-size: .65rem; }
+.pulpit-premium .nastepny-krok-kafelka p { font-size: .82rem; line-height: 1.65; margin: 4px 0 0; }
+.pulpit-premium .szczegoly-kafelka { margin: 8px 0; padding: 0; border: 0; }
+.pulpit-premium .szczegoly-kafelka summary { font-size: .72rem; min-height: 36px; }
+.pulpit-premium .szczegoly-kafelka p { font-size: .78rem; }
+.pulpit-premium .fakty-kafelka { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px 10px; color: #a5b2c6; font-size: .65rem; margin: 0 0 14px; }
+.pulpit-premium .ma-blokady { color: #f3c089; }
+.pulpit-premium .dol-kafelka { border-top: 1px solid #344155; padding-top: 10px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.pulpit-premium .dol-kafelka a { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; font-size: .74rem; text-decoration: none; }
+.pulpit-premium .otworz-projekt { font-weight: 600; color: #dceaff; }
+.pulpit-premium .skrot-github { color: #b8c8df; border: 1px solid #40516b; padding: 4px 9px; border-radius: 6px; }
+.pulpit-premium .skrot-github:hover { background: #2a3c54; }
+.pulpit-premium .bok-pulpitu { display: grid; gap: 18px; min-width: 0; }
+.pulpit-premium .bok-pulpitu .panel { margin: 0; padding: 20px; box-shadow: none; }
+.pulpit-premium .bok-pulpitu h2 { font-size: .95rem; }
+.pulpit-premium .licznik-uwag { display: inline-flex; gap: 6px; align-items: center; color: #edbd87; font-size: .78rem; }
+.pulpit-premium .lista-uwag-pulpitu { margin: 0; }
+.pulpit-premium .lista-uwag-pulpitu > li { background: var(--powierzchnia); border: 0; border-bottom: 1px solid var(--obramowanie); border-radius: 0; margin: 0; padding: 14px 0; }
+.pulpit-premium .lista-uwag-pulpitu > li:first-child { padding-top: 0; }
+.pulpit-premium .lista-uwag-pulpitu h3 { font-size: .83rem; margin: 10px 0 4px; }
+.pulpit-premium .lista-uwag-pulpitu p { color: #a5b2c6; font-size: .73rem; }
+.pulpit-premium .lista-uwag-pulpitu a { font-size: .73rem; }
+.pulpit-premium .lista-uwag-pulpitu .odnosniki { gap: 5px; margin-top: 10px; }
+.pulpit-premium .lista-uwag-pulpitu .odnosniki a { min-height: 36px; padding: 5px 9px; font-size: .68rem; }
+.pulpit-premium .link-panelu { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; font-size: .75rem; padding-top: 8px; text-decoration: none; }
+.pulpit-premium .skroty-pulpitu { display: grid; }
+.pulpit-premium .skroty-pulpitu a { display: flex; justify-content: space-between; align-items: center; min-height: 42px; border-bottom: 1px solid #303b4c; text-decoration: none; color: #ccd9ec; font-size: .78rem; }
+.pulpit-premium .skroty-pulpitu a:hover { color: #fff; }
+.pulpit-premium .wybor-repozytorium { display: grid; gap: 9px; margin-top: 16px; padding-top: 0; border-top: 0; }
+.pulpit-premium .wybor-repozytorium label { font-size: .7rem; }
+.pulpit-premium .wybor-repozytorium select { width: 100%; font-size: .74rem; padding: 8px; min-height: 40px; }
+.pulpit-premium .wybor-repozytorium a { display: inline-flex; gap: 6px; align-items: center; min-height: 36px; font-size: .75rem; }
+.pulpit-premium .drugorzedne-panele { margin-top: 28px; }
+.pulpit-premium .powrot-pulpitu { background: #141c28; border-radius: 7px; padding: 14px 18px; }
+.pulpit-premium .powrot-pulpitu h4 { margin-top: 0; }
+.pulpit-premium .grupa-powrotu h4 { font-size: .8rem; }
+@keyframes wejscie-kafelka { from { transform: translateY(4px); } to { transform: translateY(0); } }
+@media (min-width: 1500px) { .pulpit-premium .pole-szukania { flex-basis: 200px; } }
+@media (max-width: 1200px) {
+  .pulpit-premium .obszar-pulpitu { grid-template-columns: minmax(0, 1fr); }
+  .pulpit-premium .bok-pulpitu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .glassplate-2 main { padding-block: 24px; }
+  .glassplate-2 [id] { scroll-margin-top: 80px; }
+  .glassplate-2 .gorny-pasek { position: sticky; top: 0; z-index: 5; min-height: 64px; padding: 10px 16px; }
+  .glassplate-2 .sciezka-ekranu { display: flex; flex: 1; }
+  .glassplate-2 .sciezka-ekranu > span { display: none; }
+  .glassplate-2 .gorny-pasek > .etykieta-statusu { font-size: .6rem; padding: 5px 7px; }
+  .glassplate-2 .przycisk-menu { gap: 7px; align-items: center; padding: 8px; min-height: 40px; }
+  .glassplate-2 .przycisk-menu > span { display: none; }
+  .glassplate-2 .pasek-boczny { padding: 18px; }
+  .glassplate-2 .marka { margin-bottom: 20px; }
+  .pulpit-premium .naglowek-pulpitu { align-items: start; flex-direction: column; gap: 18px; margin-bottom: 22px; }
+  .pulpit-premium .naglowek-pulpitu p { font-size: .82rem; }
+  .pulpit-premium .glowna-akcja { min-height: 44px; }
+  .pulpit-premium .metryki-pulpitu { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .pulpit-premium .kafelek-metryki { grid-template-columns: 1fr; padding: 12px; gap: 6px; }
+  .pulpit-premium .kafelek-metryki strong { grid-row: auto; grid-column: auto; font-size: 1.6rem; }
+  .pulpit-premium .kafelek-metryki small { display: none; }
+  .pulpit-premium .kafelek-metryki > span { font-size: .72rem; }
+  .pulpit-premium .opis-zakresu { margin-bottom: 22px; font-size: .65rem; }
+  .pulpit-premium .filtry-pulpitu { display: flex; }
+  .pulpit-premium .filtry-pulpitu select { flex-basis: 130px; }
+  .pulpit-premium .karty-projektow, .pulpit-premium .bok-pulpitu { grid-template-columns: minmax(0, 1fr); }
+  .pulpit-premium .kafelek-projektu { padding: 18px; }
+  .pulpit-premium .dol-kafelka a, .pulpit-premium .skroty-pulpitu a { min-height: 44px; }
+  [id] { scroll-margin-top: 80px; }
 }

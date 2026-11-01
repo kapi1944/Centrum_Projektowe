@@ -1,13 +1,14 @@
 import { useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { EtykietaStatusu, PrzyciskAkcji } from '../shared/Komponenty';
+import { House as IkonaStartu, LayoutGrid as IkonaProjektow, Inbox as IkonaSkrzynki, CircleAlert as IkonaUwagi, Database as IkonaDanych, ArrowUpRight as IkonaOtwierania, ListChecks as IkonaUstalen, History as IkonaKorekt, GitBranch as IkonaRepozytorium, PanelLeftClose as IkonaZwijania, PanelLeftOpen as IkonaRozwijania, Menu as IkonaMenu, X as IkonaZamkniecia } from 'lucide-react';
 
 const pozycjeNawigacji = [
-  { adres: '/', etykieta: 'Start', symbol: '⌂' },
-  { adres: '/projekty', etykieta: 'Projekty', symbol: '▦' },
-  { adres: '/inbox', etykieta: 'Skrzynka', symbol: '▤' },
-  { adres: '/uwaga', etykieta: 'Wymaga uwagi', symbol: '!' },
-  { adres: '/dane', etykieta: 'Dane i kopie zapasowe', symbol: '▣' },
+  { adres: '/', etykieta: 'Start', Ikona: IkonaStartu },
+  { adres: '/projekty', etykieta: 'Projekty', Ikona: IkonaProjektow },
+  { adres: '/inbox', etykieta: 'Skrzynka', Ikona: IkonaSkrzynki },
+  { adres: '/uwaga', etykieta: 'Wymaga uwagi', Ikona: IkonaUwagi },
+  { adres: '/dane', etykieta: 'Dane i kopie zapasowe', Ikona: IkonaDanych },
 ];
 
 export function PasekBoczny({ zwiniety, przelacz, zamknijMenu, projektId }: {
@@ -20,20 +21,20 @@ export function PasekBoczny({ zwiniety, przelacz, zamknijMenu, projektId }: {
     <span className="podpis-nawigacji">Przestrzeń robocza</span>
     <nav id="nawigacja-glowna" aria-label="Główna nawigacja">
       {pozycjeNawigacji.map((pozycja) => <NavLink key={pozycja.adres} to={pozycja.adres} end={pozycja.adres === '/'} title={pozycja.etykieta} onClick={zamknijMenu}>
-        <span className="symbol-nawigacji" aria-hidden="true">{pozycja.symbol}</span><span className="tekst-nawigacji">{pozycja.etykieta}</span>
+        <pozycja.Ikona className="symbol-nawigacji" size={19} strokeWidth={1.7} aria-hidden="true" /><span className="tekst-nawigacji">{pozycja.etykieta}</span>
       </NavLink>)}
       {projektId && <div className="nawigacja-projektu"><span className="podpis-nawigacji">Otwarty projekt</span>{[
-        { sciezka: '', tytul: 'Przegląd projektu', symbol: '↗' },
-        { sciezka: '/ustalenia', tytul: 'Ustalenia', symbol: '≡' },
-        { sciezka: '/korekty', tytul: 'Korekty i rewizje', symbol: '↺' },
-        { sciezka: '/repozytoria', tytul: 'Repozytoria i kontekst', symbol: '⌘' },
+        { sciezka: '', tytul: 'Przegląd projektu', Ikona: IkonaOtwierania },
+        { sciezka: '/ustalenia', tytul: 'Ustalenia', Ikona: IkonaUstalen },
+        { sciezka: '/korekty', tytul: 'Korekty i rewizje', Ikona: IkonaKorekt },
+        { sciezka: '/repozytoria', tytul: 'Repozytoria i kontekst', Ikona: IkonaRepozytorium },
       ].map((pozycja) => <NavLink key={pozycja.sciezka} end to={`/projekty/${projektId}${pozycja.sciezka}`} title={pozycja.tytul} onClick={zamknijMenu}>
-        <span className="symbol-nawigacji" aria-hidden="true">{pozycja.symbol}</span><span className="tekst-nawigacji">{pozycja.tytul}</span>
+        <pozycja.Ikona className="symbol-nawigacji" size={18} strokeWidth={1.7} aria-hidden="true" /><span className="tekst-nawigacji">{pozycja.tytul}</span>
       </NavLink>)}</div>}
     </nav>
     <div className="dol-sidebaru"><span className="podpis-nawigacji">Twoje projekty. Twój kontekst.</span>
       <PrzyciskAkcji className="przelacz-sidebar" wariant="drugorzedny" aria-label={zwiniety ? 'Rozwiń sidebar' : 'Zwiń sidebar'} aria-expanded={!zwiniety} aria-controls="nawigacja-glowna" onClick={przelacz}>
-        <span aria-hidden="true">{zwiniety ? '»' : '«'}</span><span className="tekst-nawigacji">Zwiń sidebar</span>
+        {zwiniety ? <IkonaRozwijania size={18} aria-hidden="true" /> : <IkonaZwijania size={18} aria-hidden="true" />}<span className="tekst-nawigacji">Zwiń sidebar</span>
       </PrzyciskAkcji>
     </div>
   </aside>;
@@ -43,7 +44,7 @@ export function GornyPasek({ tytul, menuOtwarte, przelaczMenu, przyciskMenu }: {
   tytul: string; menuOtwarte: boolean; przelaczMenu: () => void; przyciskMenu: RefObject<HTMLButtonElement | null>;
 }) {
   return <header className="gorny-pasek">
-    <PrzyciskAkcji ref={przyciskMenu} className="przycisk-menu" wariant="drugorzedny" aria-expanded={menuOtwarte} aria-controls="nawigacja-glowna" onClick={przelaczMenu}>{menuOtwarte ? 'Zamknij menu' : 'Otwórz menu'}</PrzyciskAkcji>
+    <PrzyciskAkcji ref={przyciskMenu} className="przycisk-menu" wariant="drugorzedny" aria-label={menuOtwarte ? 'Zamknij menu' : 'Otwórz menu'} aria-expanded={menuOtwarte} aria-controls="nawigacja-glowna" onClick={przelaczMenu}>{menuOtwarte ? <IkonaZamkniecia size={20} aria-hidden="true" /> : <IkonaMenu size={20} aria-hidden="true" />}<span>Menu</span></PrzyciskAkcji>
     <div className="sciezka-ekranu"><span>Przestrzeń robocza</span><span aria-hidden="true">/</span><strong>{tytul}</strong></div>
     <EtykietaStatusu ton="sukces">Dane lokalne</EtykietaStatusu>
   </header>;
@@ -62,7 +63,7 @@ export function PowlokaAplikacji({ children }: { children: ReactNode }) {
     ustawMenuOtwarte(false);
   }
 
-  return <div className={`powloka ${zwiniety ? 'sidebar-zwiniety' : ''} ${menuOtwarte ? 'menu-otwarte' : ''}`} onKeyDown={(zdarzenie) => {
+  return <div className={`powloka glassplate-2 ${zwiniety ? 'sidebar-zwiniety' : ''} ${menuOtwarte ? 'menu-otwarte' : ''}`} onKeyDown={(zdarzenie) => {
     if (zdarzenie.key === 'Escape' && menuOtwarte) { zamknijMenu(); przyciskMenu.current?.focus(); }
   }}>
     <a className="pomin-nawigacje" href="#tresc">Przejdź do treści</a>

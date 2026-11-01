@@ -94,7 +94,7 @@ describe('Shell aplikacji', () => {
     await osoba.type(screen.getByLabelText('Opis'), 'Pierwszy opis');
     await osoba.click(screen.getByRole('button', { name: 'Dodaj projekt' }));
     await osoba.click(await screen.findByRole('link', { name: 'Pamięć projektu' }));
-    expect(screen.getByText('Utworzono projekt')).toBeInTheDocument();
+    expect(await screen.findByText('Utworzono projekt')).toBeInTheDocument();
     expect(screen.getAllByText(/Wpis ręczny \(Użytkownik\)/).length).toBeGreaterThan(0);
     await osoba.click(screen.getByRole('button', { name: 'Edytuj projekt' }));
     await osoba.selectOptions(screen.getByLabelText('Status projektu'), 'ACTIVE');

@@ -23,7 +23,7 @@ describe('Rejestr ustaleń w UI', () => {
     const uzytkownik = osoba.setup();
     render(<MemoryRouter initialEntries={['/projekty/p1']}><Aplikacja repozytorium={repozytorium} /></MemoryRouter>);
     await uzytkownik.click(await screen.findByRole('link', { name: 'Ustalenia projektu' }));
-    await uzytkownik.click(screen.getByRole('button', { name: 'Nowa decyzja' }));
+    await uzytkownik.click(await screen.findByRole('button', { name: 'Nowa decyzja' }));
     await uzytkownik.type(screen.getByLabelText('Tytuł decyzji'), 'Wspólne ustalenie');
     await uzytkownik.type(screen.getByLabelText('Opis decyzji'), 'Zachowujemy dane lokalnie');
     await uzytkownik.click(screen.getByRole('checkbox', { name: 'Beta' }));
