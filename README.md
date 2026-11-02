@@ -46,6 +46,7 @@ Build web zawiera również kontrolę TypeScript. `npm run dev:hub` uruchamia Hu
 
 ## Dokumentacja
 
+- [Instrukcje agentów](AGENTS.md), [wspólne procedury rozwoju](docs/automatyzacja/PROCEDURY.md) i [audyt A0 oraz plan A1–A9](docs/automatyzacja/A0_AUDYT_I_PLAN.md)
 - [UX Rescue 01: interfejs, naprawy i pełny odbiór](docs/v2/UX_RESCUE_01.md)
 - [R2: pulpit, zakres metryk i weryfikacja](docs/v2/R2_DASHBOARD.md)
 - [R3: GitHub Intelligence, kontrakty, API i weryfikacja](docs/v2/R3_GITHUB_INTELLIGENCE.md)
