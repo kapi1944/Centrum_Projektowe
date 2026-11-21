@@ -48,6 +48,21 @@ test('odczyt: zapis i obejścia są blokowane', () => {
   ]) assert.equal(decyzja(p, 'odczyt'), 'blokada', p)
 })
 
+test('utwardzenie po przeglądzie bezpieczeństwa (E4)', () => {
+  for (const p of [
+    'ls & git push origin x', 'ls & touch plik', 'ls\r\ntouch plik', 'ls $HOME', 'ls ${HOME}',
+    'git fetch --upload-pack=cmd origin', 'git fetch origin +x:main', 'rg --pre cmd wzorzec', 'sort -o plik a',
+    'sort --compress-program=x a', 'git diff --no-index a b', 'git diff --ext-diff',
+  ]) assert.equal(decyzja(p, 'odczyt'), 'blokada', p)
+  for (const p of ['git fetch', 'git fetch origin', 'git fetch origin 2>&1 | tail -2', 'sort a | uniq']) assert.equal(decyzja(p, 'odczyt'), 'brak', p)
+  for (const p of [
+    'rm --recursive x', 'git switch -f main', 'git reset --merge', 'git checkout .', 'git push origin :galaz',
+    'git push origin --delete galaz', 'git show HEAD:.env', 'grep KLUCZ .env.production', 'rg x .env.local',
+    'git -C x push --force',
+  ]) assert.equal(decyzja(p), 'blokada', p)
+  for (const p of ['cat .env.example', 'git add .env.example', 'node -e "process.env.X"']) assert.equal(decyzja(p), 'brak', p)
+})
+
 test('proces: kody wyjścia i JSON zgody', () => {
   const skrypt = fileURLToPath(new URL('./straznik-polecen.mjs', import.meta.url))
   const uruchom = (tryb, command) => spawnSync(process.execPath, [skrypt, tryb], { input: JSON.stringify({ tool_input: { command } }), encoding: 'utf8' })

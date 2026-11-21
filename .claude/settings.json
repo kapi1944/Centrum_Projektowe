@@ -9,7 +9,10 @@
       "Bash(npm.cmd audit fix*)",
       "Read(./.env)",
       "Read(./.env.local)",
-      "Read(./**/.env)"
+      "Read(./**/.env)",
+      "Read(./**/.env.production)",
+      "Read(./**/.env.development)",
+      "Read(./**/.env.*.local)"
     ]
   },
   "hooks": {

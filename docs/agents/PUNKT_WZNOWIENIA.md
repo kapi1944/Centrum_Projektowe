@@ -3,7 +3,7 @@
 Jedna aktualna wersja; nadpisuje ją skill `/pakiet-kontekstu`. Historię ma Git.
 
 ## Data i SHA
-2026-11-21, gałąź `claude/agenci-i-skille-01` od `origin/main` `b9e4e24`. Zmiany niezatwierdzone i niewypchnięte.
+2026-11-21, gałąź `claude/agenci-i-skille-01` od `origin/main` `b9e4e24`. Commit `3ddf067` lokalny, niewypchnięty (gałąź 1 przed `origin/main`).
 
 ## Gdzie jesteśmy
 Wdrożono pierwszy etap systemu agentów: `CLAUDE.md`, `.claude/settings.json`, strażnik poleceń, 5 subagentów, 6 skilli, dokumenty w `docs/agents/`.

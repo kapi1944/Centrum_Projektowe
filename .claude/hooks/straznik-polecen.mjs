@@ -16,12 +16,16 @@ const TWARDE_ZAKAZY = [
   [/\bgit\b.*\breset\b.*--hard/, 'git reset --hard'],
   [/\bgit\b.*\bclean\b/, 'git clean'],
   [/\bgit\b.*\bbranch\b.*(\s-D\b|--delete\s+--force|\s-d\b|--delete)/, 'usuwanie gałęzi'],
-  [/\bgit\b.*\bcheckout\b.*(\s-f\b|--force|\s--\s)/, 'git checkout nadpisujący pliki'],
+  [/\bgit\b.*\bcheckout\b.*(\s-f\b|--force|\s--\s|\s\.(\s|$))/, 'git checkout nadpisujący pliki'],
+  [/\bgit\b.*\bswitch\b.*(\s-f\b|--force|--discard-changes)/, 'git switch nadpisujący zmiany'],
+  [/\bgit\b.*\breset\b.*--(merge|keep)\b/, 'git reset --merge/--keep'],
+  [/\bgit\b.*\bpush\b.*(--delete|\s:\S)/, 'usuwanie zdalnej gałęzi'],
   [/\bgit\b.*\bstash\b.*\b(drop|clear)\b/, 'git stash drop/clear'],
   [/\bnpm(\.cmd)?\b.*\baudit\b.*\bfix\b/, 'npm audit fix'],
-  [/\brm\b.*\s-\w*[rf]\w*\b/, 'rm -r/-f'],
+  [/\brm\b.*(\s-\w*[rf]\w*\b|--recursive|--force)/, 'rm -r/-f'],
   [/\bremove-item\b.*-recurse/i, 'Remove-Item -Recurse'],
-  [/\b(cat|type|head|tail|more|less|get-content)\b[^|;&]*\.env(?!\.example)(\.\w+)?\b/i, 'odczyt pliku .env'],
+  // Dowolne polecenie wskazujące plik .env (z wyjątkiem .env.example), także git show HEAD:.env, grep, rg.
+  [/(^|[\s/:='"])\.env(?!\.example\b)(\.[\w.-]+)?(?=$|[\s'"|;&)])/i, 'dostęp do pliku .env'],
   [/\b(curl|wget|iwr|invoke-webrequest)\b.*\|\s*(sh|bash|iex|node|python)/i, 'pobranie i wykonanie kodu'],
 ]
 
@@ -41,7 +45,8 @@ const WYMAGAJA_ZGODY = [
 
 // Dozwolone segmenty poleceń w trybie "odczyt" (każdy segment osobno).
 const DOZWOLONE_ODCZYT = [
-  /^git (-C \S+ )?(status|log|diff|show|rev-parse|rev-list|ls-files|ls-tree|merge-base|blame|shortlog|describe|cat-file|diff-tree|for-each-ref|fetch)\b/,
+  /^git (-C \S+ )?(status|log|diff|show|rev-parse|rev-list|ls-files|ls-tree|merge-base|blame|shortlog|describe|cat-file|diff-tree|for-each-ref)\b/,
+  /^git (-C \S+ )?fetch( origin)?$/,
   /^git (-C \S+ )?branch( (-a|-r|-v|-vv|--list|--show-current|--all|--remotes|--verbose))*$/,
   /^git (-C \S+ )?(remote( -v)?|tag( -l| --list)?|stash list|worktree list|config --get \S+)$/,
   /^(ls|dir|pwd|head|tail|wc|grep|rg|sort|uniq|cat|file|stat|du|which|where)\b/,
@@ -67,11 +72,14 @@ export function ocenPolecenie(polecenie, tryb = 'ogolny') {
   }
   if (tryb === 'odczyt') {
     const oczyszczone = normalizuj(tekst)
-    if (/\$\(|`|<\(|>|--output\b/.test(oczyszczone)) {
-      return { decyzja: 'blokada', powod: 'Agent tylko do odczytu: przekierowania, podstawienia poleceń i --output są zabronione.' }
+    if (/\$|`|<\(|>|\r|--output\b|--pre\b|--compress-program|--no-index|--ext-diff|--textconv|--upload-pack|--exec\b|\bsort\b.*\s-\w*o\b/.test(oczyszczone)) {
+      return { decyzja: 'blokada', powod: 'Agent tylko do odczytu: przekierowania, zmienne, podstawienia poleceń oraz opcje zapisu/wykonania (--output, --pre, sort -o itp.) są zabronione.' }
     }
     const segmenty = oczyszczone.split(/&&|\|\||;|\||\n/).map((s) => s.trim()).filter(Boolean)
     for (const segment of segmenty) {
+      if (/&/.test(segment)) {
+        return { decyzja: 'blokada', powod: 'Agent tylko do odczytu: pojedynczy & (praca w tle) jest zabroniony.' }
+      }
       if (!DOZWOLONE_ODCZYT.some((wzor) => wzor.test(segment))) {
         return { decyzja: 'blokada', powod: `Agent tylko do odczytu: polecenie spoza listy dozwolonych: "${segment.slice(0, 80)}". Zwróć BLOCKED i opisz, czego brakuje.` }
       }
@@ -100,7 +108,14 @@ async function main() {
     if (tryb === 'odczyt') { console.error('Strażnik: nieczytelne wejście hooka.'); process.exit(2) }
     process.exit(0)
   }
-  const wynik = ocenPolecenie(wejscie?.tool_input?.command, tryb)
+  let wynik
+  try {
+    wynik = ocenPolecenie(wejscie?.tool_input?.command, tryb)
+  } catch (blad) {
+    // Awaria oceny: tryb odczytu zawodzi bezpiecznie (kod 2), ogólny nie przeszkadza.
+    if (tryb === 'odczyt') { console.error(`Strażnik: błąd oceny polecenia (${blad?.message ?? blad}).`); process.exit(2) }
+    process.exit(0)
+  }
   if (wynik.decyzja === 'blokada') { console.error(wynik.powod); process.exit(2) }
   if (wynik.decyzja === 'zgoda') {
     console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: wynik.powod } }))
