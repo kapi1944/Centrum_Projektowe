@@ -1,6 +1,6 @@
 # Centrum Projektowe 2.0
 
-Prywatna pamięć projektowa: projekty, oryginalne wpisy, ustalenia i realizacja. Interfejs **Glassplate Solid** używa pełnych, grafitowych powierzchni, chłodnego niebieskiego akcentu i responsywnej powłoki. Stan na 2026-11-01: R3 — GitHub Intelligence 2.0, historia i porównania zmian, PR, Actions oraz ręczne powiązania i propozycje uzgodnienia postępu.
+Prywatna pamięć projektowa: projekty, oryginalne wpisy, ustalenia i realizacja. **Premium Dark Glassplate 2.0** to pełne, ciemne powierzchnie, czytelna typografia, interaktywne kafelki i responsywna nawigacja. Stan na 2026-11-01: UX Rescue 01 — projekty na pierwszym planie, wyszukiwanie, aktualny etap, następny krok i bezpośredni dostęp do GitHub. Zachowano funkcje R2/R3.
 
 ## Uruchomienie
 
@@ -15,7 +15,7 @@ Zachowaj dotychczasowy protokół, host i port aplikacji. Inny origin oznacza os
 
 ## Bieżący zakres
 
-- Start z metrykami aktywnych projektów, otwartych zadań, blokad i uwag; kontynuacją pracy, priorytetowymi uwagami, sortowaniem projektów, osią czasu i szybkimi działaniami.
+- Start z przeglądem wszystkich projektów od pierwszego otwarcia, wyszukiwaniem, filtrami, aktualnym etapem, następnym krokiem, blokadami i skrótem GitHub na kafelku. Zachowano metryki, kontynuację pracy, uwagi, oś czasu i szybkie działania.
 - Projekty: tworzenie, edycja, archiwizacja, historia, obszary, etapy, elementy pracy, pytania i blokady.
 - Skrzynka: zachowany oryginał, analizy regułowe, weryfikacja, przebiegi i osobno zatwierdzane zastosowanie. Analiza nie jest decyzją ani obiektywną prawdą.
 - Ustalenia i analiza wpływu; korekty, propozycje zmian i rewizje planu wymagające zatwierdzenia.
@@ -46,6 +46,8 @@ Build web zawiera również kontrolę TypeScript. `npm run dev:hub` uruchamia Hu
 
 ## Dokumentacja
 
+- [Instrukcje agentów](AGENTS.md), [wspólne procedury rozwoju](docs/automatyzacja/PROCEDURY.md) i [audyt A0 oraz plan A1–A9](docs/automatyzacja/A0_AUDYT_I_PLAN.md)
+- [UX Rescue 01: interfejs, naprawy i pełny odbiór](docs/v2/UX_RESCUE_01.md)
 - [R2: pulpit, zakres metryk i weryfikacja](docs/v2/R2_DASHBOARD.md)
 - [R3: GitHub Intelligence, kontrakty, API i weryfikacja](docs/v2/R3_GITHUB_INTELLIGENCE.md)
 - [R0 FINAL + R1: zakres, zależności i weryfikacja](docs/v2/R0_FINAL_R1.md)

@@ -101,6 +101,21 @@ describe('Publiczny adapter GitHub', () => {
   it.each(['https://evil.example/a/b', 'https://github.com/a/b?token=abc', 'https://user:pass@github.com/a/b', 'https://github.com/a/b/issues', 'https://github.com/a/%2e%2e', 'http://github.com/a/b'])('odrzuca adres %s przed siecią', (adres) => { expect(() => rozpoznajAdresGitHub(adres)).toThrow(); });
 });
 describe('Synchronizacja w istniejącej bazie i backupie', () => {
+  it('tworzy dowód dla nowo powiązanego projektu także przy niezmienionej historii GitHub', async () => {
+    const { repozytoriumDanych, uruchom } = await srodowisko();
+    const poczatkowe = await repozytoriumDanych.pobierzRepozytoria();
+    const polaczenie = poczatkowe.polaczeniaRepozytoriow[0];
+    await repozytoriumDanych.wykonajOperacjeRepozytorium({ rodzaj: 'zapisz', oczekiwanaWersja: polaczenie.wersja, rekord: { ...polaczenie, projektIds: ['p1'], wersja: polaczenie.wersja + 1 } });
+    const przed = await uruchom();
+    const zapisane = przed.polaczeniaRepozytoriow[0];
+    await repozytoriumDanych.wykonajOperacjeRepozytorium({ rodzaj: 'zapisz', oczekiwanaWersja: zapisane.wersja, rekord: { ...zapisane, projektIds: ['p1', 'p2'], wersja: zapisane.wersja + 1 } });
+    const po = await uruchom();
+    expect(po.migawkiRepozytoriow).toHaveLength(2);
+    expect(po.migawkiRepozytoriow).toContainEqual(przed.migawkiRepozytoriow[0]);
+    expect(po.dowody).toContainEqual(przed.dowody[0]);
+    const nowyDowod = po.dowody.find((dowod) => !przed.dowody.some((poprzedni) => poprzedni.id === dowod.id));
+    expect(nowyDowod?.projektIds).toEqual(['p1', 'p2']);
+  });
   it('pierwszy zapis zachowuje dwa repozytoria, wspólne projekty i spójny Evidence/SourceLink', async () => {
     const { uruchom } = await srodowisko(); const dane = await uruchom();
     expect(dane.polaczeniaRepozytoriow).toHaveLength(2); expect(dane.polaczeniaRepozytoriow[0]?.projektIds).toEqual(['p1', 'p2']);

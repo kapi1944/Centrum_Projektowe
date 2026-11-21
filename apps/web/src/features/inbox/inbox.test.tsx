@@ -50,7 +50,7 @@ describe('Szybki Inbox', () => {
     await uzytkownik.type(screen.getByLabelText('Opis nowego projektu (opcjonalny)'), 'Mały eksperyment');
     await uzytkownik.click(screen.getByRole('button', { name: 'Utwórz i przypnij wpis' }));
     await uzytkownik.click(await screen.findByRole('link', { name: 'Prototyp' }));
-    expect(screen.getByText('Utworzono projekt')).toBeInTheDocument();
+    expect(await screen.findByText('Utworzono projekt')).toBeInTheDocument();
     expect(screen.getByText('Dołączono wpis do projektu')).toBeInTheDocument();
     const projekt = (await repozytorium.pobierzProjekty())[0];
     expect(projekt).toMatchObject({ status: 'IDEA', opis: 'Mały eksperyment' });

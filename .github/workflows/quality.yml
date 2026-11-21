@@ -3,18 +3,103 @@ name: Quality
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Pobierz kod
+        id: pobranie
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Przygotuj katalog raportów
+        run: |
+          mkdir -p "$RUNNER_TEMP/centrum-quality"
+          echo "KATALOG_RAPORTOW=$RUNNER_TEMP/centrum-quality" >> "$GITHUB_ENV"
+      - name: Przygotuj Node.js
+        id: srodowisko
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+      - name: Zainstaluj zależności
+        id: instalacja
+        run: npm ci 2>&1 | tee "$KATALOG_RAPORTOW/instalacja.log"
+      - name: Sprawdź lint
+        id: lint
+        if: ${{ !cancelled() && steps.instalacja.outcome == 'success' }}
+        run: npm run lint 2>&1 | tee "$KATALOG_RAPORTOW/lint.log"
+      - name: Sprawdź typy
+        id: typy
+        if: ${{ !cancelled() && steps.instalacja.outcome == 'success' }}
+        run: npm run typecheck 2>&1 | tee "$KATALOG_RAPORTOW/typy.log"
+      - name: Uruchom testy
+        id: testy
+        if: ${{ !cancelled() && steps.instalacja.outcome == 'success' }}
+        run: npm test 2>&1 | tee "$KATALOG_RAPORTOW/testy.log"
+      - name: Zbuduj projekt
+        id: budowanie
+        if: ${{ !cancelled() && steps.instalacja.outcome == 'success' }}
+        run: npm run build 2>&1 | tee "$KATALOG_RAPORTOW/budowanie.log"
+      - name: Zapisz wyniki kontroli
+        if: ${{ always() }}
+        env:
+          WYNIKI_KROKOW: ${{ toJSON(steps) }}
+          SHA_ZRODLA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { mkdirSync as utworzKatalog, writeFileSync as zapiszPlik, appendFileSync as dopiszPlik } from 'node:fs';
+          import { join as polaczSciezki } from 'node:path';
+          const kroki = JSON.parse(process.env.WYNIKI_KROKOW);
+          const kontrole = Object.fromEntries(
+            ['pobranie', 'srodowisko', 'instalacja', 'lint', 'typy', 'testy', 'budowanie']
+              .map((nazwa) => [nazwa, kroki[nazwa]?.outcome ?? 'skipped']),
+          );
+          const raport = {
+            wersja: 1,
+            repozytorium: process.env.GITHUB_REPOSITORY,
+            shaKontroli: process.env.GITHUB_SHA,
+            shaZrodla: process.env.SHA_ZRODLA,
+            uruchomienie: process.env.GITHUB_RUN_ID,
+            proba: process.env.GITHUB_RUN_ATTEMPT,
+            zdarzenie: process.env.GITHUB_EVENT_NAME,
+            kontrole,
+          };
+          const podsumowanie = [
+            '# Wyniki kontroli jakości',
+            '',
+            `SHA kontroli: ${raport.shaKontroli}`,
+            `SHA źródła: ${raport.shaZrodla}`,
+            '',
+            '| Kontrola | Wynik |',
+            '| --- | --- |',
+            ...Object.entries(kontrole).map(([nazwa, wynik]) => `| ${nazwa} | ${wynik} |`),
+            '',
+          ].join('\n');
+          const katalogRaportow = polaczSciezki(process.env.RUNNER_TEMP, 'centrum-quality');
+          utworzKatalog(katalogRaportow, { recursive: true });
+          zapiszPlik(polaczSciezki(katalogRaportow, 'wyniki.json'), JSON.stringify(raport, null, 2) + '\n');
+          zapiszPlik(polaczSciezki(katalogRaportow, 'podsumowanie.md'), podsumowanie);
+          dopiszPlik(process.env.GITHUB_STEP_SUMMARY, podsumowanie);
+          NODE
+      - name: Zachowaj raporty jakości
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: jakosc-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/centrum-quality/
+          retention-days: 7
+          if-no-files-found: error

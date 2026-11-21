@@ -38,7 +38,9 @@ export function utworzSynchronizacjeRepozytorium(czytnik: CzytnikRepozytorium, z
       const czas = zegar();
       const rekord = { ...aktualizuj({ tozsamosc: odczyt.tozsamosc, status: 'POLACZONE', ostatniaProba: czas, ostatniaObserwacja: czas, komunikat: zakres ? 'Odczytano wybrany zakres GitHub. Historia commitów nie została odświeżona.' : 'Odczytano publiczne repozytorium GitHub.' }), adresZdalny: odczyt.tozsamosc.adres, domyslnaGalaz: odczyt.tozsamosc.domyslnaGalaz, weryfikacja: 'GITHUB_API' as const };
       const poprzednia = ostatniaMigawka(dane, repo.id);
-      if (poprzednia?.zrodlo === 'GITHUB_API' && JSON.stringify(uporzadkuj({ ...poprzednia.github, historiaPobrana: undefined })) === JSON.stringify(uporzadkuj({ ...odczyt, historiaPobrana: undefined }))) {
+      const dowodObejmujeProjekty = poprzednia && dane.dowody.some((dowod) => poprzednia.dowodIds.includes(dowod.id)
+        && dowod.weryfikacja === 'GITHUB_API' && repo.projektIds.every((projektId) => dowod.projektIds.includes(projektId)));
+      if (poprzednia?.zrodlo === 'GITHUB_API' && dowodObejmujeProjekty && JSON.stringify(uporzadkuj({ ...poprzednia.github, historiaPobrana: undefined })) === JSON.stringify(uporzadkuj({ ...odczyt, historiaPobrana: undefined }))) {
         await zapisz({ rodzaj: 'synchronizuj', rekord, oczekiwanaWersja: repo.wersja }); return;
       }
       const id = identyfikator(); const dowodId = identyfikator(); const sha = odczyt.commity[0]!.sha;
