@@ -29,4 +29,4 @@ Odpowiadaj zwięźle po polsku: wynik, zakres, wykonane kontrole, ograniczenia i
 
 ## Umiejętności repozytorium
 
-Procedury zadaniowe są w `.agents/skills`: `realizuj-etap`, `diagnostyka-bledow`, `testy-regresyjne`, `raport-etapu`. Czytaj właściwy `SKILL.md`, gdy odpowiada zadaniu; nie ładuj wszystkich bez potrzeby. Zasady wspólne pozostają w tym pliku i w procedurach, bez dodatkowych kopii dla poszczególnych narzędzi.
+Procedury zadaniowe są w `.agents/skills`: `realizuj-etap`, `diagnostyka-bledow`, `testy-regresyjne`, `raport-etapu`. Czytaj właściwy `SKILL.md`, gdy odpowiada zadaniu; nie ładuj wszystkich bez potrzeby. Zasady wspólne pozostają w tym pliku i w procedurach, bez dodatkowych kopii dla poszczególnych narzędzi. Claude Code importuje ten plik przez `CLAUDE.md`; jego agenci i umiejętności (`.claude/`) opisuje [docs/agents/ARCHITEKTURA_AGENTOW.md](docs/agents/ARCHITEKTURA_AGENTOW.md).
